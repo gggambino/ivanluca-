@@ -29,7 +29,7 @@ export function html() {
   <div class="grid2">
     <section class="card">
       <div class="row sp"><h2>Misiones de hoy</h2><span class="pct ${pct >= 70 ? 'ok' : ''}">${pct}%</span></div>
-      ${bar(pct, pct >= 70 ? 'var(--green)' : 'var(--red)')}
+      ${bar(pct, pct >= 70 ? 'var(--green)' : 'var(--accent)')}
       <ul class="checks">${hs.map((x) => { const ok = L.hecho(x.id, h); return `<li><button class="check ${ok ? 'on' : ''}" data-hab="${x.id}">
         <span class="box">${ok ? '✓' : ''}</span><span class="t">${esc(x.nombre)}</span><span class="xp" style="color:${AREAS[x.area]?.c}">+${x.xp}</span></button></li>`; }).join('') || vacio('Hoy no tenés hábitos cargados.')}</ul>
       <p class="muted sm">Con el 70% ganás el día y sumás a la racha.</p>

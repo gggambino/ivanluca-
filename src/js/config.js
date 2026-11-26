@@ -10,12 +10,12 @@ export const BB_KEY = 'sb_publishable_SwnH85zmoMsyriBQb1VlWw_LfyLDE1Y';
 
 export const AREAS = {
   salud:      { l: 'Salud',           ic: '❤', c: '#E5484D' },
-  ingresos:   { l: 'Ingresos',        ic: '$', c: '#3FB565' },
-  proyectos:  { l: 'Proyectos',       ic: '◆', c: '#6EA0E6' },
-  relaciones: { l: 'Relaciones',      ic: '☺', c: '#E07BC5' },
-  imagen:     { l: 'Imagen personal', ic: '★', c: '#E3A445' },
-  bienestar:  { l: 'Bienestar',       ic: '☯', c: '#5BC0C0' },
-  negocios:   { l: 'Negocios',        ic: '▲', c: '#B78CFF' },
+  ingresos:   { l: 'Ingresos',        ic: '$', c: '#16A34A' },
+  proyectos:  { l: 'Proyectos',       ic: '◆', c: '#2563EB' },
+  relaciones: { l: 'Relaciones',      ic: '☺', c: '#DB2777' },
+  imagen:     { l: 'Imagen personal', ic: '★', c: '#F59E0B' },
+  bienestar:  { l: 'Bienestar',       ic: '☯', c: '#0891B2' },
+  negocios:   { l: 'Negocios',        ic: '▲', c: '#7C3AED' },
 };
 
 export const CAT_GASTO = ['Comida', 'Súper', 'Uber / transporte', 'Salidas', 'Ropa / imagen', 'Salud / suple', 'Suscripciones', 'Casa', 'Regalos', 'Otros'];
