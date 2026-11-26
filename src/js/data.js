@@ -13,7 +13,7 @@ export const bb = window.supabase.createClient(BB_URL, BB_KEY, {
 export const S = {
   user: null, perfil: null,
   habitos: [], log: [], cabeza: [], movs: [], fijos: [], fijosPagos: [],
-  proyectos: [], recordatorios: [], rutina: [], salud: [], ingBB: [],
+  proyectos: [], recordatorios: [], rutina: [], salud: [], ingBB: [], objetivos: [], comidas: [],
   bbUser: null,
 };
 
@@ -21,7 +21,7 @@ const chk = (r) => { if (r.error) throw r.error; return r.data || []; };
 
 export async function cargarTodo() {
   const desde = addDias(hoy(), -400);
-  const [pe, ha, lo, ca, mo, fi, fp, pr, re, ru, sa, ib] = await Promise.all([
+  const [pe, ha, lo, ca, mo, fi, fp, pr, re, ru, sa, ib, ob, co] = await Promise.all([
     sb.from('perfil').select('*').maybeSingle(),
     sb.from('habitos').select('*').order('orden'),
     sb.from('habito_log').select('*').gte('fecha', desde),
@@ -34,12 +34,14 @@ export async function cargarTodo() {
     sb.from('rutina').select('*').order('dia').order('desde'),
     sb.from('salud_log').select('*').order('fecha', { ascending: false }),
     sb.from('ingresos_bb').select('*').gte('fecha', desde),
+    sb.from('objetivos').select('*').order('creado'),
+    sb.from('comidas').select('*').gte('fecha', addDias(hoy(), -120)).order('creado'),
   ]);
   if (pe.error) throw pe.error;
   S.perfil = pe.data;
   S.habitos = chk(ha); S.log = chk(lo); S.cabeza = chk(ca); S.movs = chk(mo);
   S.fijos = chk(fi); S.fijosPagos = chk(fp); S.proyectos = chk(pr); S.recordatorios = chk(re);
-  S.rutina = chk(ru); S.salud = chk(sa); S.ingBB = chk(ib);
+  S.rutina = chk(ru); S.salud = chk(sa); S.ingBB = chk(ib); S.objetivos = chk(ob); S.comidas = chk(co);
 }
 
 // Primera vez: carga los datos iniciales tomados de las planillas de Ivan.
@@ -55,6 +57,14 @@ export async function sembrarSiHaceFalta() {
     sb.from('salud_log').insert({ fecha: hoy(), peso: 86, notas: 'Punto de partida (de tu planilla)' }),
   ]).then((rs) => rs.forEach(chk));
   return true;
+}
+
+// Tus ejemplos de objetivos para diciembre, cargados una sola vez.
+export async function sembrarObjetivos() {
+  if (S.objetivos.length || localStorage.getItem('il-obj-seed')) return;
+  localStorage.setItem('il-obj-seed', '1');
+  const r = await sb.from('objetivos').insert(SEED.objetivosDic).select();
+  if (!r.error) S.objetivos = r.data || [];
 }
 
 // ---------- Base Bambino (solo lectura) ----------

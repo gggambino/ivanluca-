@@ -3,6 +3,7 @@ import { CAT_GASTO, CAT_INGRESO } from '../config.js';
 import { esc, hoy, money, fecha, MESES, parse } from '../util.js';
 import * as L from '../logic.js';
 import { toast, errorMsg, vacio, bar, modal, cerrarModal } from '../ui.js';
+import { revisarAutomaticos } from './objetivos.js';
 
 let mes = hoy().slice(0, 7);
 let tipo = 'gasto';
@@ -79,6 +80,7 @@ export function mount(v, rerender) {
     const r = await sb.from('movimientos').insert(row).select().single();
     if (r.error) return toast(errorMsg(r.error), true);
     S.movs.unshift(r.data); S.movs.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    await revisarAutomaticos();
     toast(`${tipo === 'gasto' ? 'Gasto' : 'Ingreso'} guardado. +2 XP`); rerender();
   };
   v.querySelectorAll('[data-fijo]').forEach((b) => b.onclick = async () => {

@@ -37,6 +37,11 @@ export const SEED = {
     { nombre: 'Nueva web al Ruso', area: 'negocios', estado: 'idea', prioridad: 2 },
     { nombre: 'IPF', area: 'negocios', estado: 'idea', prioridad: 3 },
   ],
+  objetivosDic: [
+    { titulo: 'Ganar $2.000.000', periodo: 'mes', desde: '2026-12-01', area: 'ingresos', tipo: 'numero', meta: 2000000, unidad: '$', auto: 'ingresos' },
+    { titulo: 'Lanzar 10 videos nuevos', periodo: 'mes', desde: '2026-12-01', area: 'imagen', tipo: 'numero', meta: 10, unidad: 'videos' },
+    { titulo: 'Lanzar el merch del team', periodo: 'mes', desde: '2026-12-01', area: 'negocios', tipo: 'si_no', meta: 1 },
+  ],
   rutina: [
     // Lunes, miércoles, viernes
     ...[1, 3, 5].flatMap((d) => [

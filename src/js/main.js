@@ -1,8 +1,9 @@
-import { sb, S, cargarTodo, sembrarSiHaceFalta, bbSesion, sincronizarBB } from './data.js';
+import { sb, S, cargarTodo, sembrarSiHaceFalta, sembrarObjetivos, bbSesion, sincronizarBB } from './data.js';
 import { esc } from './util.js';
 import { toast, errorMsg, modal, cerrarModal } from './ui.js';
 import * as L from './logic.js';
 import * as Hoy from './views/hoy.js';
+import * as Objetivos from './views/objetivos.js';
 import * as Cabeza from './views/cabeza.js';
 import * as Plata from './views/plata.js';
 import * as Proyectos from './views/proyectos.js';
@@ -12,6 +13,7 @@ import * as Perfil from './views/perfil.js';
 const app = document.getElementById('app');
 const NAV = [
   { k: 'hoy', l: 'Hoy', ic: '◎', v: Hoy },
+  { k: 'objetivos', l: 'Objetivos', ic: '⚑', v: Objetivos },
   { k: 'cabeza', l: 'Cabeza', ic: '☁', v: Cabeza },
   { k: 'plata', l: 'Plata', ic: '$', v: Plata },
   { k: 'proyectos', l: 'Proyectos', ic: '◆', v: Proyectos },
@@ -83,8 +85,10 @@ async function arrancar(user) {
   try {
     await cargarTodo();
     if (await sembrarSiHaceFalta()) { await cargarTodo(); toast('Cargué tus datos iniciales de las planillas'); }
+    await sembrarObjetivos();
+    await Objetivos.revisarAutomaticos();
     render();
-    if (await bbSesion()) sincronizarBB().then((r) => { if (r.ok) render(); });
+    if (await bbSesion()) sincronizarBB().then(async (r) => { if (r.ok) { await Objetivos.revisarAutomaticos(); render(); } });
   } catch (e) { console.error(e); app.innerHTML = `<div class="login"><div class="card">No pude cargar: ${esc(errorMsg(e))}</div></div>`; }
 }
 

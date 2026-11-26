@@ -57,6 +57,8 @@ export function html() {
     ${cab.length > 5 ? `<a class="muted sm" href="#/cabeza">Ver las ${cab.length} cosas abiertas en la Cabeza →</a>` : ''}
   </section>
 
+  ${objetivosHtml()}
+
   <section class="card">
     <h2>Tus áreas</h2>
     <div class="areas">${Object.entries(L.xpPorArea(ev)).map(([k, xp]) => { const p = L.progreso(xp); const A = AREAS[k];
@@ -107,4 +109,11 @@ export function nuevoRecordatorio(rerender) {
       S.recordatorios.push(r.data); cerrarModal(); toast('Recordatorio guardado'); rerender();
     };
   });
+}
+
+function objetivosHtml() {
+  const xs = [...L.objetivosDe('semana', L.inicioSemana()), ...L.objetivosDe('mes', L.inicioMes())];
+  return `<section class="card"><div class="row sp"><h2>Objetivos</h2><a class="btn sm" href="#/objetivos">Ver todos</a></div>
+    ${xs.map((o) => { const p = L.pctObjetivo(o); return `<div class="cat"><div class="row sp sm"><span>${p >= 100 ? '🏆 ' : ''}${esc(o.titulo)} <small class="muted">· ${o.periodo === 'mes' ? 'mes' : 'semana'}</small></span><b>${p}%</b></div>${bar(p, p >= 100 ? 'var(--green)' : AREAS[o.area]?.c)}</div>`; }).join('')
+      || vacio('Sin objetivos para esta semana ni este mes. Cargalos en Objetivos.')}</section>`;
 }

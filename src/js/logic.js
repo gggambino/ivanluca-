@@ -20,6 +20,9 @@ export const XP_REGLAS = [
   ['Pasar un proyecto a "en curso"', '+10 en su área'],
   ['Terminar un proyecto', '+50 en su área'],
   ['Registrar tu peso', '+5 Salud'],
+  ['Lograr un objetivo de la semana', '+30 en su área'],
+  ['Lograr un objetivo del mes', '+60 en su área'],
+  ['Día con calorías dentro de tu meta (±10%)', '+10 Salud'],
   ['Día ganado (70% de los hábitos del día)', '+10 Bienestar'],
 ];
 
@@ -41,6 +44,8 @@ export function eventosXP() {
     if (p.estado === 'hecho') ev.push({ fecha: (p.cerrado || p.creado).slice(0, 10), area: a, xp: 50, txt: 'Proyecto terminado: ' + p.nombre });
   }
   for (const s of S.salud) if (s.peso && !String(s.notas || '').startsWith('Punto de partida')) ev.push({ fecha: s.fecha, area: 'salud', xp: 5, txt: 'Registraste tu peso' });
+  for (const o of S.objetivos) if (o.hecho) ev.push({ fecha: (o.cerrado || o.creado).slice(0, 10), area: o.area, xp: o.periodo === 'mes' ? 60 : 30, txt: 'Objetivo logrado: ' + o.titulo });
+  for (const f of diasEnCalorias()) ev.push({ fecha: f, area: 'salud', xp: 10, txt: 'Calorías dentro de tu meta' });
   for (const f of diasGanados()) ev.push({ fecha: f, area: 'bienestar', xp: 10, txt: 'Día ganado' });
   return ev;
 }
@@ -136,3 +141,37 @@ export function fijosPorVencer(dias = 5) {
   const R = resumenMes(mes);
   return R.fijosPend.filter((f) => f.dia_vto && (f.dia_vto < d || f.dia_vto - d <= dias)).map((f) => ({ ...f, vencido: f.dia_vto < d }));
 }
+
+// ---------- Calorías ----------
+export const comidasDel = (f = hoy()) => S.comidas.filter((c) => c.fecha === f);
+export const kcalDel = (f = hoy()) => sum(comidasDel(f), (c) => c.calorias);
+export const protDel = (f = hoy()) => sum(comidasDel(f), (c) => c.proteina);
+export function diasEnCalorias() {
+  const meta = Number(S.perfil?.meta_calorias) || 0; if (!meta) return [];
+  const fechas = [...new Set(S.comidas.map((c) => c.fecha))].filter((f) => f < hoy());
+  return fechas.filter((f) => { const k = kcalDel(f); return k >= meta * 0.9 && k <= meta * 1.1; });
+}
+
+// ---------- Objetivos ----------
+export const inicioSemana = (f = hoy()) => { const d = parse(f).getDay(); return addDias(f, -((d + 6) % 7)); };
+export const inicioMes = (f = hoy()) => f.slice(0, 8) + '01';
+export function finPeriodo(o) {
+  if (o.periodo === 'semana') return addDias(o.desde, 6);
+  const d = parse(o.desde); return ymdLocal(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+const ymdLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function ingresosEntre(a, b) {
+  return sum(S.ingBB.filter((x) => x.fecha >= a && x.fecha <= b), (x) => x.monto)
+    + sum(S.movs.filter((m) => m.tipo === 'ingreso' && m.estado === 'hecho' && m.fecha >= a && m.fecha <= b), (m) => m.monto);
+}
+export function valorObjetivo(o) {
+  if (o.auto === 'ingresos') return ingresosEntre(o.desde, finPeriodo(o));
+  if (o.auto === 'ahorro') return resumenMes(o.desde.slice(0, 7)).resultado;
+  if (o.tipo === 'si_no') return o.hecho ? 1 : 0;
+  return Number(o.actual) || 0;
+}
+export function pctObjetivo(o) {
+  if (o.tipo === 'si_no') return o.hecho ? 100 : 0;
+  const m = Number(o.meta) || 1; return Math.max(0, Math.min(100, Math.round((valorObjetivo(o) / m) * 100)));
+}
+export const objetivosDe = (periodo, desde) => S.objetivos.filter((o) => o.periodo === periodo && o.desde === desde);
