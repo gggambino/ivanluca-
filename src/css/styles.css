@@ -256,3 +256,16 @@ main{padding:28px 32px 120px;max-width:1100px;width:100%;min-width:0}
 .dia.pasado{opacity:.75}
 .dia h2 small{font-size:14px}
 @media (max-width:600px){.semana-grid{grid-template-columns:1fr}.add-tarea input[name=hora]{width:84px}}
+.timeline li.bloque{align-items:center}
+.timeline li.bloque .t{flex:1;min-width:0}
+.timeline li .be{padding:2px 8px;opacity:.55}
+.timeline li .be:hover{opacity:1}
+.timeline li.past .be{opacity:1}
+.pers{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px;color:var(--accent);font-weight:600;flex-wrap:wrap}
+.lnk{background:none;border:0;padding:0;color:var(--ink-3);text-decoration:underline;font:inherit;font-size:13px;cursor:pointer}
+.add-tarea{flex-wrap:wrap}
+.add-tarea select{width:auto;flex:none;padding:8px}
+.stack label.chk,label.chk{flex-direction:row;align-items:center;gap:8px}
+.chk input{width:auto}
+.dia .add-tarea input[name=titulo]{flex:1 1 100%}
+@media (max-width:600px){.add-tarea input[name=titulo]{flex:1 1 100%}}

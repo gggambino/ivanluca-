@@ -45,7 +45,7 @@ export function eventosXP() {
     if (p.estado === 'hecho') ev.push({ fecha: (p.cerrado || p.creado).slice(0, 10), area: a, xp: 50, txt: 'Proyecto terminado: ' + p.nombre });
   }
   for (const s of S.salud) if (s.peso && !String(s.notas || '').startsWith('Punto de partida')) ev.push({ fecha: s.fecha, area: 'salud', xp: 5, txt: 'Registraste tu peso' });
-  for (const t of S.tareas) if (t.hecho) ev.push({ fecha: (t.hecho_en || t.fecha).slice(0, 10), area: t.area, xp: 5, txt: 'Tarea: ' + t.titulo });
+  for (const t of S.tareas) if (t.hecho && !t.es_bloque) ev.push({ fecha: (t.hecho_en || t.fecha).slice(0, 10), area: t.area, xp: 5, txt: 'Tarea: ' + t.titulo });
   for (const o of S.objetivos) if (o.hecho) ev.push({ fecha: (o.cerrado || o.creado).slice(0, 10), area: o.area, xp: o.periodo === 'mes' ? 60 : 30, txt: 'Objetivo logrado: ' + o.titulo });
   for (const f of diasEnCalorias()) ev.push({ fecha: f, area: 'salud', xp: 10, txt: 'Calorías dentro de tu meta' });
   for (const f of diasGanados()) ev.push({ fecha: f, area: 'bienestar', xp: 10, txt: 'Día ganado' });
@@ -180,6 +180,12 @@ export const objetivosDe = (periodo, desde) => S.objetivos.filter((o) => o.perio
 
 // ---------- Tareas por día ----------
 const ordHora = (a, b) => (a.hora || '99') < (b.hora || '99') ? -1 : (a.hora || '99') > (b.hora || '99') ? 1 : (a.prioridad - b.prioridad);
-export const tareasDel = (f) => S.tareas.filter((t) => t.fecha === f).sort(ordHora);
-export const atrasadas = () => S.tareas.filter((t) => !t.hecho && t.fecha < hoy()).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+// Un día "personalizado" ya no lee la semana tipo: sus bloques son filas propias (es_bloque) que se editan libremente
+export const diaPersonalizado = (f) => S.diasPlan.includes(f);
+export const tareasDel = (f) => S.tareas.filter((t) => t.fecha === f && !t.es_bloque).sort(ordHora);
+export const bloquesPropios = (f) => S.tareas.filter((t) => t.fecha === f && t.es_bloque).sort(ordHora);
+export const atrasadas = () => S.tareas.filter((t) => !t.hecho && !t.es_bloque && t.fecha < hoy()).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
 export const bloquesDel = (f) => S.rutina.filter((r) => r.dia === parse(f).getDay());
+// Bloques que se muestran ese día: los propios si lo personalizaste, si no la semana tipo + bloques sueltos agregados
+export const bloquesVista = (f) => diaPersonalizado(f) ? bloquesPropios(f).map((b) => ({ ...b, propio: true, desde: b.hora }))
+  : [...bloquesDel(f).map((b) => ({ ...b, tipo: true })), ...bloquesPropios(f).map((b) => ({ ...b, propio: true, desde: b.hora }))];

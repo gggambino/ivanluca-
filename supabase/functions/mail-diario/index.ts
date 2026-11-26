@@ -45,16 +45,21 @@ Deno.serve(async (req) => {
 
   for (const P of perfiles || []) {
     const u = P.user_id; const q = (t: string) => db.from(t).select('*').eq('user_id', u);
-    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk] = await Promise.all([
+    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk, dp] = await Promise.all([
       q('rutina').eq('dia', dia).order('desde'), q('habitos').eq('activo', true).order('orden'),
       q('habito_log').gte('fecha', addDias(hoy, -60)), q('cabeza').eq('estado', 'abierto').order('creado'),
       q('recordatorios'), q('gastos_fijos').eq('activo', true), q('fijos_pagos').eq('mes', mes),
       q('movimientos').gte('fecha', mes + '-01'), q('proyectos').eq('estado', 'en_curso').order('prioridad'), q('ingresos_bb').gte('fecha', mes + '-01'),
       q('tareas').eq('hecho', false).lte('fecha', hoy).gte('fecha', addDias(hoy, -30)).order('hora', { nullsFirst: false }),
+      q('dias_plan').eq('fecha', hoy),
     ]);
-    const tks = tk.data || []; const tkHoy = tks.filter((t: any) => t.fecha === hoy); const tkAtr = tks.filter((t: any) => t.fecha < hoy);
+    const todas = tk.data || []; const bloquesPropios = todas.filter((t: any) => t.es_bloque && t.fecha === hoy);
+    const tks = todas.filter((t: any) => !t.es_bloque); const tkHoy = tks.filter((t: any) => t.fecha === hoy); const tkAtr = tks.filter((t: any) => t.fecha < hoy);
+    // Si personalizó el día, su agenda reemplaza a la semana tipo
+    const base = (dp.data || []).length ? [] : (ru.data || []);
     const hh = (x: any) => String(x || '').slice(0, 5);
-    const linea = [...(ru.data || []).map((b: any) => ({ h: hh(b.desde), h2: hh(b.hasta), t: esc(b.titulo), c: AREAS[b.area]?.c || '#999' })),
+    const linea = [...base.map((b: any) => ({ h: hh(b.desde), h2: hh(b.hasta), t: esc(b.titulo), c: AREAS[b.area]?.c || '#999' })),
+      ...bloquesPropios.map((b: any) => ({ h: hh(b.hora), h2: hh(b.hasta), t: esc(b.titulo), c: AREAS[b.area]?.c || '#999' })),
       ...tkHoy.filter((t: any) => t.hora).map((t: any) => ({ h: hh(t.hora), h2: hh(t.hasta), t: `<b>☐ ${esc(t.titulo)}</b>`, c: '#FF6B2C' }))].sort((a, b) => (a.h < b.h ? -1 : 1));
     const habitos = (ha.data || []).filter((h: any) => (h.dias || []).includes(dia));
     // racha
