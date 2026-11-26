@@ -41,10 +41,10 @@ export function html() {
 
   <div class="grid2">
     <section class="card">
-      <div class="row sp"><h2>Gastos fijos</h2><span class="muted sm">${money(R.totalFijos)} / mes</span></div>
+      <div class="row sp"><h2>Gastos fijos</h2><span class="muted sm">${money(R.totalFijos)} / mes</span><button class="btn sm primary" id="b-fijo-new">+ Agregar</button></div>
       <ul class="list">${S.fijos.filter((f) => f.activo).map((f) => { const p = R.pagadoFijo(f);
         return `<li><span class="t">${esc(f.concepto)}${f.dia_vto ? ` <small class="muted">vence el ${f.dia_vto}</small>` : ''}</span><span>${money(p?.monto ?? f.monto)}</span>
-        <button class="btn sm ${p ? 'ok' : ''}" data-fijo="${f.id}">${p ? '✓ Pagado' : 'Pagar'}</button></li>`; }).join('') || vacio('Sin gastos fijos. Cargalos en Perfil.')}</ul>
+        <button class="btn sm ${p ? 'ok' : ''}" data-fijo="${f.id}">${p ? '✓ Pagado' : 'Pagar'}</button><button class="btn sm ghost" data-fijo-edit="${f.id}" aria-label="Editar ${esc(f.concepto)}">✎</button></li>`; }).join('') || vacio('Sin gastos fijos. Agregá el primero.')}</ul>
     </section>
     <section class="card">
       <h2>¿En qué se me va?</h2>
@@ -98,6 +98,33 @@ export function mount(v, rerender) {
       };
     });
   });
+  const editarFijo = (f) => modal(f ? 'Editar gasto fijo' : 'Nuevo gasto fijo', `<form id="f-fe" class="stack">
+      <label>Concepto<input name="concepto" value="${esc(f?.concepto || '')}" placeholder="Ej: Internet, monotributo, gimnasio" required></label>
+      <div class="row g"><label>Monto por mes<input name="monto" type="number" inputmode="decimal" min="0" step="any" value="${f?.monto ?? ''}" required></label>
+      <label>Día de vencimiento<input name="dia_vto" type="number" inputmode="numeric" min="1" max="31" value="${f?.dia_vto ?? ''}" placeholder="1 a 31"></label></div>
+      <p class="muted sm">Con el día de vencimiento te aviso en Hoy y en el mail de las 7 AM.</p>
+      <div class="row sp"><button class="btn primary">Guardar</button>${f ? '<button type="button" class="btn ghost red" id="b-fe-del">Dar de baja</button>' : ''}</div></form>`, (m) => {
+    const form = m.querySelector('#f-fe');
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const row = { concepto: form.concepto.value.trim(), monto: Number(form.monto.value), dia_vto: form.dia_vto.value ? Number(form.dia_vto.value) : null };
+      if (row.dia_vto !== null && (row.dia_vto < 1 || row.dia_vto > 31)) return toast('El día tiene que ser entre 1 y 31', true);
+      const r = f ? await sb.from('gastos_fijos').update(row).eq('id', f.id).select().single()
+        : await sb.from('gastos_fijos').insert({ ...row, orden: S.fijos.length }).select().single();
+      if (r.error) return toast(errorMsg(r.error), true);
+      if (f) Object.assign(f, r.data); else S.fijos.push(r.data);
+      cerrarModal(); toast(f ? 'Gasto fijo actualizado' : 'Gasto fijo agregado'); rerender();
+    };
+    const del = m.querySelector('#b-fe-del');
+    if (del) del.onclick = async () => {
+      if (del.dataset.armed !== '1') { del.dataset.armed = '1'; del.textContent = '¿Seguro? Tocá de nuevo'; return; }
+      const r = await sb.from('gastos_fijos').update({ activo: false }).eq('id', f.id);
+      if (r.error) return toast(errorMsg(r.error), true);
+      f.activo = false; cerrarModal(); toast('Dado de baja. Lo podés reactivar en Perfil > Gastos fijos'); rerender();
+    };
+  });
+  v.querySelector('#b-fijo-new').onclick = () => editarFijo();
+  v.querySelectorAll('[data-fijo-edit]').forEach((b) => b.onclick = () => editarFijo(S.fijos.find((x) => x.id === b.dataset.fijoEdit)));
   v.querySelectorAll('[data-ok]').forEach((b) => b.onclick = async () => {
     const r = await sb.from('movimientos').update({ estado: 'hecho' }).eq('id', b.dataset.ok);
     if (r.error) return toast(errorMsg(r.error), true);
