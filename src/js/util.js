@@ -1,0 +1,17 @@
+export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+export const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const hoy = () => ymd(new Date());
+export const parse = (s) => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+export const addDias = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); };
+export const difDias = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+export const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+export const DIAS_C = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+export const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
+export const fecha = (s) => { const d = parse(s); return `${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)}`; };
+export const fechaLarga = (s) => { const d = parse(s); return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`; };
+export const hm = (t) => String(t || '').slice(0, 5);
+export const ahoraHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+export const fechaHora = (iso) => { const d = new Date(iso); return `${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)} ${d.getFullYear()} · ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+export const sum = (xs, f = (x) => x) => xs.reduce((s, x) => s + (Number(f(x)) || 0), 0);
