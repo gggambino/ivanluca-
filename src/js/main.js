@@ -10,6 +10,7 @@ import * as Proyectos from './views/proyectos.js';
 import * as Salud from './views/salud.js';
 import * as Perfil from './views/perfil.js';
 import * as Semana from './views/semana.js';
+import * as MesPlan from './views/mesplan.js';
 import { sembrarEntrenos } from './views/entrenos.js';
 
 const app = document.getElementById('app');
@@ -22,6 +23,7 @@ const NAV = [
   { k: 'salud', l: 'Salud', ic: '❤', v: Salud },
   { k: 'perfil', l: 'Perfil', ic: '★', v: Perfil },
   { k: 'semana', l: 'Semana', ic: '▦', v: Semana, hidden: true },
+  { k: 'mes', l: 'Mes', ic: '▦', v: MesPlan, hidden: true },
 ];
 const ruta = () => (location.hash.replace(/^#\/?/, '').split('/')[0] || 'hoy');
 
@@ -32,7 +34,7 @@ function shell() {
     <aside class="side">
       <a class="brand" href="#/hoy">IVAN <b>LUCA</b></a>
       <div class="lvl"><span>Nivel ${g.n}</span>${'<div class="bar sm"><span style="width:' + g.pct + '%"></span></div>'}</div>
-      <nav>${NAV.filter((n) => !n.hidden).map((n) => `<a href="#/${n.k}" class="${n.k === r || (n.k === 'hoy' && r === 'semana') ? 'on' : ''}"><i>${n.ic}</i><span>${n.l}</span></a>`).join('')}</nav>
+      <nav>${NAV.filter((n) => !n.hidden).map((n) => `<a href="#/${n.k}" class="${n.k === r || (n.k === 'hoy' && (r === 'semana' || r === 'mes')) ? 'on' : ''}"><i>${n.ic}</i><span>${n.l}</span></a>`).join('')}</nav>
     </aside>
     <main id="view"></main>
     <button class="fab" id="fab-cabeza" aria-label="Anotar algo que tengo en la cabeza">+ Cabeza</button>

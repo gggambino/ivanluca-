@@ -5,6 +5,7 @@ import { planHtml, mountPlan } from './plan.js';
 import { tabsHoy } from './hoy.js';
 
 let desde = L.inicioSemana();
+export function irA(f) { desde = L.inicioSemana(f); location.hash = '#/semana'; }
 
 export function html() {
   const dias = Array.from({ length: 7 }, (_, i) => addDias(desde, i));

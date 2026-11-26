@@ -332,3 +332,11 @@ main{padding:28px 32px 120px;max-width:1100px;width:100%;min-width:0}
 @media (max-width:600px){.donut-w{grid-template-columns:1fr}.donut{max-width:220px;margin:0 auto}.barras{gap:4px;height:160px}.barra small{font-size:9px}}
 .tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}
 .tabs a{white-space:nowrap}
+ul.mini{list-style:none;margin:4px 0 0;padding:0;font-size:13px;color:var(--ink-2)}
+ul.mini li{padding:3px 0;border-bottom:1px dashed var(--line);overflow-wrap:anywhere}
+ul.mini li.resuelto,ul.mini li.no_importaba{text-decoration:line-through;opacity:.55}
+.sd-list{display:flex;flex-direction:column;gap:4px}
+.sd-list .cal-e{white-space:normal;font-size:13px}
+.sd-list .cal-e i{display:inline}
+.xp-heat{display:inline-block;padding:1px 6px;border-radius:6px;font:600 12px 'Barlow Condensed',sans-serif;color:#fff;background:rgba(255,107,44,var(--a))}
+.cal-k.red{color:var(--red)}

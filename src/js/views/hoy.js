@@ -6,7 +6,7 @@ import { toast, xpToast, errorMsg, areaChip, bar, vacio, modal, cerrarModal, for
 import { planHtml, mountPlan } from './plan.js';
 
 export function tabsHoy(k) {
-  return `<nav class="tabs"><a href="#/hoy" class="${k === 'hoy' ? 'on' : ''}">Hoy</a><a href="#/semana" class="${k === 'semana' ? 'on' : ''}">Semana</a></nav>`;
+  return `<nav class="tabs"><a href="#/hoy" class="${k === 'hoy' ? 'on' : ''}">Hoy</a><a href="#/semana" class="${k === 'semana' ? 'on' : ''}">Semana</a><a href="#/mes" class="${k === 'mes' ? 'on' : ''}">Mes</a></nav>`;
 }
 
 export function html() {

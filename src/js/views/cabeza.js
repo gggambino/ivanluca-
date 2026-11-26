@@ -1,6 +1,11 @@
 import { sb, S } from '../data.js';
 import { esc, fechaHora, difDias, hoy, MESES } from '../util.js';
 import { toast, errorMsg, vacio, modal, cerrarModal, areaOpts } from '../ui.js';
+import * as C from './cal.js';
+
+const st = C.estado('Lista');
+const creadas = (f) => S.cabeza.filter((c) => c.creado.slice(0, 10) === f);
+const cerradas = (f) => S.cabeza.filter((c) => c.cerrado && c.cerrado.slice(0, 10) === f);
 
 let tab = 'abierto';
 
@@ -23,9 +28,23 @@ export function html() {
     <div class="card stat"><b>${ce.length - noImp}</b><span>resueltas</span></div>
     <div class="card stat"><b>${ce.length ? Math.round((noImp / ce.length) * 100) : 0}%</b><span>no importaban</span></div>
   </div>
-  <div class="tabs"><button data-tab="abierto" class="${tab === 'abierto' ? 'on' : ''}">En la cabeza (${ab.length})</button><button data-tab="cerrado" class="${tab !== 'abierto' ? 'on' : ''}">Historial (${ce.length})</button></div>
+  ${C.tabs(st)}
+  ${st.vista !== 'lista' ? calHtml() : `<div class="tabs"><button data-tab="abierto" class="${tab === 'abierto' ? 'on' : ''}">En la cabeza (${ab.length})</button><button data-tab="cerrado" class="${tab !== 'abierto' ? 'on' : ''}">Historial (${ce.length})</button></div>
   ${Object.entries(grupos).map(([k, xs]) => `<section class="card"><h3 class="muted up">${MESES[Number(k.slice(5)) - 1]} ${k.slice(0, 4)}</h3>
-    <ul class="cab">${xs.map(item).join('')}</ul></section>`).join('') || `<section class="card">${vacio(tab === 'abierto' ? 'Cabeza despejada. Nada abierto.' : 'Todavía no cerraste nada.')}</section>`}`;
+    <ul class="cab">${xs.map(item).join('')}</ul></section>`).join('') || `<section class="card">${vacio(tab === 'abierto' ? 'Cabeza despejada. Nada abierto.' : 'Todavía no cerraste nada.')}</section>`}`}`;
+}
+
+function calHtml() {
+  const f = st.sel;
+  if (st.vista === 'dia') return `${C.nav(st)}
+    <div class="grid2"><section class="card"><h2>Anotado este día (${creadas(f).length})</h2><ul class="cab">${creadas(f).map(item).join('') || vacio('Nada anotado este día.')}</ul></section>
+    <section class="card"><h2>Cerrado este día (${cerradas(f).length})</h2><ul class="cab">${cerradas(f).map(item).join('') || vacio('Nada cerrado este día.')}</ul></section></div>`;
+  if (st.vista === 'semana') return `${C.nav(st)}${C.semana(st, (d) => { const a = creadas(d); const c = cerradas(d);
+    return `<div class="sm">${a.length ? `☁ ${a.length} anotadas` : '<span class="muted">Nada anotado</span>'}${c.length ? ` · <span class="green">✓ ${c.length} cerradas</span>` : ''}</div>
+    <ul class="mini">${a.slice(0, 4).map((x) => `<li class="${x.estado}">${esc(x.texto.slice(0, 70))}</li>`).join('')}</ul>${a.length > 4 ? `<span class="muted sm">y ${a.length - 4} más</span>` : ''}`; })}`;
+  return `${C.nav(st)}${C.mes(st, (d) => { const a = creadas(d).length; const c = cerradas(d).length;
+    return `${a ? `<span class="cal-e">☁ ${a}</span>` : ''}${c ? `<span class="cal-e ok">✓ ${c}</span>` : ''}`; })}
+    <p class="muted sm">☁ cosas que anotaste ese día · ✓ cosas que cerraste. Tocá un día para verlas y resolverlas.</p>`;
 }
 
 function item(c) {
@@ -47,6 +66,7 @@ export function mount(v, rerender) {
     S.cabeza.unshift(r.data); toast('Afuera. +5 XP Bienestar'); tab = 'abierto'; rerender();
   };
   v.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; rerender(); });
+  C.mount(v, st, rerender);
   v.querySelectorAll('[data-cerrar]').forEach((b) => b.onclick = () => {
     const estado = b.dataset.cerrar; const id = b.dataset.id;
     modal(estado === 'resuelto' ? '¿Cómo lo resolviste?' : 'Ya no importa', `<form id="f-c" class="stack">

@@ -1,6 +1,7 @@
 import { sb, S } from '../data.js';
 import { esc, fecha, hoy, difDias } from '../util.js';
 import { toast, errorMsg, vacio, modal, cerrarModal, areaChip, areaOpts, formData } from '../ui.js';
+import * as C from './cal.js';
 
 const ESTADOS = [
   { k: 'en_curso', l: 'En curso', d: 'Lo estoy moviendo ahora' },
@@ -9,6 +10,11 @@ const ESTADOS = [
   { k: 'hecho', l: 'Hechos', d: 'Logros desbloqueados' },
 ];
 let tab = 'en_curso';
+const st = C.estado('Tablero');
+const vencen = (f) => S.proyectos.filter((p) => p.fecha_obj === f);
+const terminados = (f) => S.proyectos.filter((p) => p.estado === 'hecho' && p.cerrado && p.cerrado.slice(0, 10) === f);
+const nuevos = (f) => S.proyectos.filter((p) => p.creado && p.creado.slice(0, 10) === f);
+const tareasP = (f) => S.tareas.filter((t) => t.fecha === f && !t.es_bloque && t.area === 'proyectos');
 
 export function html() {
   const cnt = (k) => S.proyectos.filter((p) => p.estado === k).length;
@@ -17,9 +23,26 @@ export function html() {
   return `
   <header class="top"><div><p class="muted up">Proyectos en curso e ideas para después</p><h1>Proyectos</h1></div><button class="btn primary" id="b-new">+ Nuevo</button></header>
   ${enCurso > 5 ? `<p class="aviso">Tenés ${enCurso} proyectos en curso. Con más de 3 o 4 a la vez, ninguno avanza. Pasá alguno a Pausado.</p>` : ''}
-  <div class="tabs">${ESTADOS.map((e) => `<button data-tab="${e.k}" class="${tab === e.k ? 'on' : ''}">${e.l} (${cnt(e.k)})</button>`).join('')}</div>
+  ${C.tabs(st)}
+  ${st.vista !== 'lista' ? calHtml() : `<div class="tabs">${ESTADOS.map((e) => `<button data-tab="${e.k}" class="${tab === e.k ? 'on' : ''}">${e.l} (${cnt(e.k)})</button>`).join('')}</div>
   <p class="muted sm">${esc(ESTADOS.find((e) => e.k === tab).d)}</p>
-  <div class="proys">${xs.map(card).join('') || `<div class="card">${vacio('Nada acá todavía.')}</div>`}</div>`;
+  <div class="proys">${xs.map(card).join('') || `<div class="card">${vacio('Nada acá todavía.')}</div>`}</div>`}`;
+}
+
+function calHtml() {
+  const f = st.sel;
+  if (st.vista === 'dia') { const v = vencen(f); const t = terminados(f); const n = nuevos(f); const ts = tareasP(f);
+    return `${C.nav(st)}
+    ${v.length ? `<h3 class="muted up">Fecha objetivo este día</h3><div class="proys">${v.map(card).join('')}</div>` : ''}
+    ${t.length ? `<h3 class="muted up">Terminados este día 🏆</h3><div class="proys">${t.map(card).join('')}</div>` : ''}
+    ${n.length ? `<h3 class="muted up">Nuevos este día</h3><div class="proys">${n.map(card).join('')}</div>` : ''}
+    <section class="card"><div class="row sp"><h2>Tareas de proyectos</h2><a class="btn sm" href="#/semana">Planificar</a></div>
+      <ul class="list">${ts.map((x) => `<li><span class="ic">${x.hecho ? '✓' : '○'}</span><span class="t">${x.hora ? `<b>${x.hora.slice(0, 5)}</b> ` : ''}${esc(x.titulo)}</span></li>`).join('') || vacio('Sin tareas de proyectos este día. Sumalas desde Hoy o Semana.')}</ul></section>
+    ${!v.length && !t.length && !n.length ? `<p class="muted sm">Para que un proyecto aparezca en el calendario, ponele fecha objetivo (Editar).</p>` : ''}`; }
+  const cel = (d, larga) => { const v = vencen(d); const t = terminados(d); const ts = tareasP(d);
+    return `${v.map((p) => `<span class="cal-e ${p.estado === 'hecho' ? 'ok' : ''}">◆ <i>${esc(p.nombre)}</i></span>`).join('')}${t.filter((p) => !v.includes(p)).map((p) => `<span class="cal-e ok">🏆 <i>${esc(p.nombre)}</i></span>`).join('')}${ts.length ? `<span class="cal-k">${ts.filter((x) => x.hecho).length}/${ts.length} tareas</span>` : ''}${larga && !v.length && !t.length && !ts.length ? '<span class="muted sm">Libre</span>' : ''}`; };
+  if (st.vista === 'semana') return `${C.nav(st)}${C.semana(st, (d) => `<div class="sd-list">${cel(d, true)}</div>`)}`;
+  return `${C.nav(st)}${C.mes(st, (d) => cel(d))}<p class="muted sm">◆ fecha objetivo de un proyecto · 🏆 terminado · tareas de proyectos hechas / total.</p>`;
 }
 
 function card(p) {
@@ -51,6 +74,7 @@ function form(p = {}) {
 
 export function mount(v, rerender) {
   v.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; rerender(); });
+  C.mount(v, st, rerender);
   v.querySelectorAll('[data-est]').forEach((b) => b.onclick = async () => {
     const estado = b.dataset.est; const id = b.dataset.id;
     const patch = { estado, cerrado: estado === 'hecho' ? new Date().toISOString() : null };

@@ -1,6 +1,7 @@
 import { sb, S } from '../data.js';
 import { esc, hoy, money, MESES, parse, addDias, fecha, difDias } from '../util.js';
 import * as L from '../logic.js';
+import * as C from './cal.js';
 import { toast, errorMsg, vacio, bar, modal, cerrarModal, areaChip, areaOpts } from '../ui.js';
 import { AREAS } from '../config.js';
 
@@ -17,6 +18,31 @@ const mover = (n) => {
 };
 const fmt = (o, v) => (o.unidad === '$' ? money(v) : `${Math.round(v * 100) / 100}${o.unidad ? ' ' + o.unidad : ''}`);
 
+const st = C.estado('Lista');
+let EV = [];
+const evDel = (f) => EV.filter((e) => e.fecha === f);
+const xpDel = (f) => evDel(f).reduce((a, e) => a + e.xp, 0);
+function resumenObj(per, ini) {
+  const xs = L.objetivosDe(per, ini); if (!xs.length) return `<span class="muted sm">Sin objetivos ${per === 'mes' ? 'del mes' : 'de la semana'}</span>`;
+  const ok = xs.filter((o) => L.pctObjetivo(o) >= 100).length;
+  return `<div class="row sp sm"><b>${per === 'mes' ? 'Objetivos del mes' : 'Objetivos de la semana'}: ${ok} de ${xs.length}</b></div>${bar((ok / xs.length) * 100, 'var(--green)')}
+    <div class="chips">${xs.map((o) => `<span class="chip" style="--c:${L.pctObjetivo(o) >= 100 ? 'var(--green)' : AREAS[o.area]?.c}">${L.pctObjetivo(o) >= 100 ? '🏆' : L.pctObjetivo(o) + '%'} ${esc(o.titulo)}</span>`).join('')}</div>`;
+}
+function calHtml() {
+  EV = L.eventosXP(); const f = st.sel;
+  if (st.vista === 'dia') { const xs = evDel(f);
+    return `${C.nav(st)}<section class="card"><div class="row sp"><h2>Lo que sumaste este día</h2><b class="big-num">+${xpDel(f)} XP</b></div>
+      <ul class="list">${xs.map((e) => `<li><span class="dot" style="background:${AREAS[e.area]?.c}"></span><span class="t">${esc(e.txt || '')}</span><b style="color:${AREAS[e.area]?.c}">+${e.xp}</b></li>`).join('') || vacio('Este día no sumaste XP.')}</ul></section>
+      <section class="card">${resumenObj('semana', L.inicioSemana(f))}</section><section class="card">${resumenObj('mes', L.inicioMes(f))}</section>`; }
+  if (st.vista === 'semana') { const tot = C.dias7(st).reduce((a, d) => a + xpDel(d), 0);
+    return `${C.nav(st)}<section class="card">${resumenObj('semana', L.inicioSemana(f))}<p class="muted sm">+${tot} XP en la semana.</p></section>
+      ${C.semana(st, (d) => { const xs = evDel(d); return `<b class="big-num">+${xpDel(d)} XP</b><ul class="mini">${xs.slice(0, 5).map((e) => `<li>${esc(e.txt || '')}</li>`).join('')}</ul>${xs.length > 5 ? `<span class="muted sm">y ${xs.length - 5} más</span>` : ''}`; })}`; }
+  const max = Math.max(1, ...C.diasMes(st).map(xpDel));
+  return `${C.nav(st)}<section class="card">${resumenObj('mes', L.inicioMes(f))}</section>
+    ${C.mes(st, (d) => { const x = xpDel(d); return x ? `<span class="xp-heat" style="--a:${Math.max(0.2, x / max)};color:${x / max > 0.45 ? '#fff' : 'var(--navy)'}">+${x}</span>` : ''; })}
+    <p class="muted sm">Cuanto más naranja, más XP sumaste ese día. Tocá un día para ver qué hiciste.</p>`;
+}
+
 export function html() {
   const xs = L.objetivosDe(periodo, desde);
   const logrados = xs.filter((o) => L.pctObjetivo(o) >= 100).length;
@@ -25,13 +51,14 @@ export function html() {
   const anterior = L.objetivosDe(periodo, mover(-1));
   return `
   <header class="top"><div><p class="muted up">Metas de la semana y del mes</p><h1>Objetivos</h1></div><button class="btn primary" id="b-new">+ Nuevo objetivo</button></header>
-  <div class="row sp wrap">
+  ${C.tabs(st)}
+  ${st.vista !== 'lista' ? calHtml() : `<div class="row sp wrap">
     <div class="seg"><button data-per="mes" class="${periodo === 'mes' ? 'on' : ''}">Del mes</button><button data-per="semana" class="${periodo === 'semana' ? 'on' : ''}">De la semana</button></div>
     <div class="mes"><button class="btn sm ghost" data-mov="-1" aria-label="Anterior">‹</button><b>${esc(label())}</b><button class="btn sm ghost" data-mov="1" aria-label="Siguiente">›</button></div>
   </div>
   ${xs.length ? `<section class="card"><div class="row sp"><b>${logrados} de ${xs.length} logrados</b><span class="muted sm">${quedan >= 0 && hoy() >= desde ? `quedan ${quedan + 1} ${quedan === 0 ? 'día' : 'días'}` : hoy() < desde ? 'todavía no empezó' : 'período cerrado'}</span></div>${bar((logrados / xs.length) * 100, 'var(--green)')}</section>` : ''}
   <div class="objs">${xs.map(card).join('') || `<div class="card">${vacio(`Sin objetivos para ${periodo === 'mes' ? 'este mes' : 'esta semana'}.`)}${anterior.length ? `<button class="btn" id="b-copy">Copiar los ${anterior.length} objetivos ${periodo === 'mes' ? 'del mes' : 'de la semana'} anterior</button>` : ''}</div>`}</div>
-  <p class="muted sm">Pocos y claros: 3 a 5 por mes y 2 o 3 por semana. Lograr uno de la semana da +30 XP y uno del mes +60 XP.</p>`;
+  <p class="muted sm">Pocos y claros: 3 a 5 por mes y 2 o 3 por semana. Lograr uno de la semana da +30 XP y uno del mes +60 XP.</p>`}`;
 }
 
 function card(o) {
@@ -89,6 +116,7 @@ function form(o = {}) {
 }
 
 export function mount(v, rerender) {
+  C.mount(v, st, rerender);
   v.querySelectorAll('[data-per]').forEach((b) => b.onclick = () => { periodo = b.dataset.per; desde = periodo === 'mes' ? L.inicioMes() : L.inicioSemana(); rerender(); });
   v.querySelectorAll('[data-mov]').forEach((b) => b.onclick = () => { desde = mover(Number(b.dataset.mov)); rerender(); });
   const byId = (id) => S.objetivos.find((o) => o.id === id);
