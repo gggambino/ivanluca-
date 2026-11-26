@@ -3,13 +3,18 @@ import { AREAS } from '../config.js';
 import { esc, hoy, fechaLarga, fecha, hm, ahoraHM, parse, money, difDias } from '../util.js';
 import * as L from '../logic.js';
 import { toast, xpToast, errorMsg, areaChip, bar, vacio, modal, cerrarModal, formData } from '../ui.js';
+import { planHtml, mountPlan } from './plan.js';
+
+export function tabsHoy(k) {
+  return `<nav class="tabs"><a href="#/hoy" class="${k === 'hoy' ? 'on' : ''}">Hoy</a><a href="#/semana" class="${k === 'semana' ? 'on' : ''}">Semana</a></nav>`;
+}
 
 export function html() {
   const h = hoy(); const dia = parse(h).getDay(); const ahora = ahoraHM();
   const ev = L.eventosXP(); const tot = L.xpTotal(ev); const g = L.nivelGeneral(tot);
   const xpHoy = ev.filter((e) => e.fecha === h).reduce((s, e) => s + e.xp, 0);
   const hs = L.habitosDelDia(h); const pct = L.pctDia(h); const racha = L.racha();
-  const bloques = S.rutina.filter((r) => r.dia === dia);
+  const atr = L.atrasadas();
   const cab = S.cabeza.filter((c) => c.estado === 'abierto');
   const recs = L.recordatoriosProximos(7);
   const fijos = L.fijosPorVencer(5);
@@ -25,6 +30,7 @@ export function html() {
       <div class="row sp sm"><span>🔥 Racha: ${racha} ${racha === 1 ? 'día' : 'días'}</span><span class="muted">Día ${pct >= 70 ? 'ganado ✓' : 'en juego'}</span></div></div>
     </div>
   </header>
+  ${tabsHoy('hoy')}
 
   <div class="grid2">
     <section class="card">
@@ -36,11 +42,12 @@ export function html() {
     </section>
 
     <section class="card">
-      <h2>Estructura del día</h2>
-      <ol class="timeline">${bloques.map((b) => { const now = hm(b.desde) <= ahora && ahora < hm(b.hasta); const past = hm(b.hasta) <= ahora;
-        return `<li class="${now ? 'now' : ''} ${past ? 'past' : ''}" style="--c:${AREAS[b.area]?.c || 'var(--ink-3)'}"><span class="h">${hm(b.desde)}–${hm(b.hasta)}</span><span>${esc(b.titulo)}</span>${now ? '<em>ahora</em>' : ''}</li>`; }).join('') || vacio('Sin bloques para hoy. Cargalos en Perfil > Agenda.')}</ol>
+      <div class="row sp"><h2>Plan del día</h2><a class="btn sm" href="#/semana">Armar semana</a></div>
+      ${planHtml(h)}
     </section>
   </div>
+
+  ${atr.length ? `<section class="card"><h2>Atrasadas <small class="muted">(${atr.length})</small></h2><ul class="tareas">${atr.map((t) => `<li class="tarea"><span class="t">${esc(t.titulo)}</span><span class="muted sm red">${fecha(t.fecha)}</span><button class="btn sm" data-mañana="${t.id}">Pasar a hoy</button><button class="btn sm ghost" data-edt="${t.id}" aria-label="Editar">✎</button></li>`).join('')}</ul></section>` : ''}
 
   <section class="card">
     <div class="row sp"><h2>A resolver</h2><button class="btn sm" id="b-rec">+ Recordatorio</button></div>
@@ -90,6 +97,7 @@ export function mount(v, rerender) {
     S.recordatorios.find((x) => x.id === b.dataset.rec).hecho = true; rerender();
   });
   v.querySelector('#b-rec').onclick = () => nuevoRecordatorio(rerender);
+  mountPlan(v, rerender);
 }
 
 export function nuevoRecordatorio(rerender) {

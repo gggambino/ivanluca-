@@ -13,7 +13,7 @@ export const bb = window.supabase.createClient(BB_URL, BB_KEY, {
 export const S = {
   user: null, perfil: null,
   habitos: [], log: [], cabeza: [], movs: [], fijos: [], fijosPagos: [],
-  proyectos: [], recordatorios: [], rutina: [], salud: [], ingBB: [], objetivos: [], comidas: [],
+  proyectos: [], recordatorios: [], rutina: [], salud: [], ingBB: [], objetivos: [], comidas: [], tareas: [],
   bbUser: null,
 };
 
@@ -21,7 +21,7 @@ const chk = (r) => { if (r.error) throw r.error; return r.data || []; };
 
 export async function cargarTodo() {
   const desde = addDias(hoy(), -400);
-  const [pe, ha, lo, ca, mo, fi, fp, pr, re, ru, sa, ib, ob, co] = await Promise.all([
+  const [pe, ha, lo, ca, mo, fi, fp, pr, re, ru, sa, ib, ob, co, ta] = await Promise.all([
     sb.from('perfil').select('*').maybeSingle(),
     sb.from('habitos').select('*').order('orden'),
     sb.from('habito_log').select('*').gte('fecha', desde),
@@ -36,12 +36,13 @@ export async function cargarTodo() {
     sb.from('ingresos_bb').select('*').gte('fecha', desde),
     sb.from('objetivos').select('*').order('creado'),
     sb.from('comidas').select('*').gte('fecha', addDias(hoy(), -120)).order('creado'),
+    sb.from('tareas').select('*').gte('fecha', addDias(hoy(), -90)).order('hora', { nullsFirst: false }).order('creado'),
   ]);
   if (pe.error) throw pe.error;
   S.perfil = pe.data;
   S.habitos = chk(ha); S.log = chk(lo); S.cabeza = chk(ca); S.movs = chk(mo);
   S.fijos = chk(fi); S.fijosPagos = chk(fp); S.proyectos = chk(pr); S.recordatorios = chk(re);
-  S.rutina = chk(ru); S.salud = chk(sa); S.ingBB = chk(ib); S.objetivos = chk(ob); S.comidas = chk(co);
+  S.rutina = chk(ru); S.salud = chk(sa); S.ingBB = chk(ib); S.objetivos = chk(ob); S.comidas = chk(co); S.tareas = chk(ta);
 }
 
 // Primera vez: carga los datos iniciales tomados de las planillas de Ivan.

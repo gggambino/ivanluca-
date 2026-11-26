@@ -228,3 +228,31 @@ main{padding:28px 32px 120px;max-width:1100px;width:100%;min-width:0}
 .dia-k span{width:100%;max-width:34px;border-radius:6px 6px 2px 2px;min-height:3px}
 .dia-k small{color:var(--ink-3);font-size:11px}
 .chips .btn{white-space:normal;text-align:left}
+
+/* Plan del día / Semana */
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;width:max-content;margin:0 0 14px}
+.tabs a{padding:6px 16px;border-radius:7px;font:600 14px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);text-decoration:none}
+.tabs a.on{background:var(--navy);color:#fff}
+.plan h3{font-size:12px;margin:12px 0 4px}
+.tareas{list-style:none;margin:0;padding:0}
+.tarea{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;border-bottom:1px solid var(--line)}
+.tareas .tarea:last-child{border-bottom:0}
+.timeline li.tarea{border-left:3px solid var(--accent);padding-left:9px;border-bottom:0;align-items:center}
+.tarea .t{flex:1;min-width:0;overflow-wrap:anywhere}
+.tarea .h{font:600 13px 'Barlow Condensed',sans-serif;color:var(--navy);margin-right:4px}
+.tarea.on .t{text-decoration:line-through;opacity:.5}
+.tk{flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--accent);background:#fff;color:#fff;font-weight:700;font-size:13px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.tarea.on .tk{background:var(--accent)}
+.prio{color:var(--accent);font-weight:800}
+.dot{flex:none;width:8px;height:8px;border-radius:50%}
+.tarea .btn.sm{padding:2px 8px}
+.add-tarea{display:flex;gap:6px;margin-top:10px}
+.add-tarea input[name=titulo]{flex:1;min-width:0}
+.add-tarea input[name=hora]{width:96px;flex:none}
+.timeline li.compacto{padding:4px 0 4px 10px;font-size:13px;opacity:.7}
+.timeline li.compacto .h{min-width:68px;font-size:12px}
+.semana-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.dia.hoy{border:2px solid var(--accent)}
+.dia.pasado{opacity:.75}
+.dia h2 small{font-size:14px}
+@media (max-width:600px){.semana-grid{grid-template-columns:1fr}.add-tarea input[name=hora]{width:84px}}

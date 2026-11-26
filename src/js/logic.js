@@ -20,6 +20,7 @@ export const XP_REGLAS = [
   ['Pasar un proyecto a "en curso"', '+10 en su área'],
   ['Terminar un proyecto', '+50 en su área'],
   ['Registrar tu peso', '+5 Salud'],
+  ['Completar una tarea de tu plan del día', '+5 en su área'],
   ['Lograr un objetivo de la semana', '+30 en su área'],
   ['Lograr un objetivo del mes', '+60 en su área'],
   ['Día con calorías dentro de tu meta (±10%)', '+10 Salud'],
@@ -44,6 +45,7 @@ export function eventosXP() {
     if (p.estado === 'hecho') ev.push({ fecha: (p.cerrado || p.creado).slice(0, 10), area: a, xp: 50, txt: 'Proyecto terminado: ' + p.nombre });
   }
   for (const s of S.salud) if (s.peso && !String(s.notas || '').startsWith('Punto de partida')) ev.push({ fecha: s.fecha, area: 'salud', xp: 5, txt: 'Registraste tu peso' });
+  for (const t of S.tareas) if (t.hecho) ev.push({ fecha: (t.hecho_en || t.fecha).slice(0, 10), area: t.area, xp: 5, txt: 'Tarea: ' + t.titulo });
   for (const o of S.objetivos) if (o.hecho) ev.push({ fecha: (o.cerrado || o.creado).slice(0, 10), area: o.area, xp: o.periodo === 'mes' ? 60 : 30, txt: 'Objetivo logrado: ' + o.titulo });
   for (const f of diasEnCalorias()) ev.push({ fecha: f, area: 'salud', xp: 10, txt: 'Calorías dentro de tu meta' });
   for (const f of diasGanados()) ev.push({ fecha: f, area: 'bienestar', xp: 10, txt: 'Día ganado' });
@@ -175,3 +177,9 @@ export function pctObjetivo(o) {
   const m = Number(o.meta) || 1; return Math.max(0, Math.min(100, Math.round((valorObjetivo(o) / m) * 100)));
 }
 export const objetivosDe = (periodo, desde) => S.objetivos.filter((o) => o.periodo === periodo && o.desde === desde);
+
+// ---------- Tareas por día ----------
+const ordHora = (a, b) => (a.hora || '99') < (b.hora || '99') ? -1 : (a.hora || '99') > (b.hora || '99') ? 1 : (a.prioridad - b.prioridad);
+export const tareasDel = (f) => S.tareas.filter((t) => t.fecha === f).sort(ordHora);
+export const atrasadas = () => S.tareas.filter((t) => !t.hecho && t.fecha < hoy()).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+export const bloquesDel = (f) => S.rutina.filter((r) => r.dia === parse(f).getDay());
