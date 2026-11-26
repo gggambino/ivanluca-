@@ -8,7 +8,7 @@ export const difDias = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
 export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 export const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 export const DIAS_C = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
-export const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
+export const money = (n) => { const v = Math.round(Number(n) || 0); return (v < 0 ? '−$' : '$') + Math.abs(v).toLocaleString('es-AR'); };
 export const fecha = (s) => { const d = parse(s); return `${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)}`; };
 export const fechaLarga = (s) => { const d = parse(s); return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`; };
 export const hm = (t) => String(t || '').slice(0, 5);
