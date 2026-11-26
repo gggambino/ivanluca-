@@ -45,12 +45,17 @@ Deno.serve(async (req) => {
 
   for (const P of perfiles || []) {
     const u = P.user_id; const q = (t: string) => db.from(t).select('*').eq('user_id', u);
-    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib] = await Promise.all([
+    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk] = await Promise.all([
       q('rutina').eq('dia', dia).order('desde'), q('habitos').eq('activo', true).order('orden'),
       q('habito_log').gte('fecha', addDias(hoy, -60)), q('cabeza').eq('estado', 'abierto').order('creado'),
       q('recordatorios'), q('gastos_fijos').eq('activo', true), q('fijos_pagos').eq('mes', mes),
       q('movimientos').gte('fecha', mes + '-01'), q('proyectos').eq('estado', 'en_curso').order('prioridad'), q('ingresos_bb').gte('fecha', mes + '-01'),
+      q('tareas').eq('hecho', false).lte('fecha', hoy).gte('fecha', addDias(hoy, -30)).order('hora', { nullsFirst: false }),
     ]);
+    const tks = tk.data || []; const tkHoy = tks.filter((t: any) => t.fecha === hoy); const tkAtr = tks.filter((t: any) => t.fecha < hoy);
+    const hh = (x: any) => String(x || '').slice(0, 5);
+    const linea = [...(ru.data || []).map((b: any) => ({ h: hh(b.desde), h2: hh(b.hasta), t: esc(b.titulo), c: AREAS[b.area]?.c || '#999' })),
+      ...tkHoy.filter((t: any) => t.hora).map((t: any) => ({ h: hh(t.hora), h2: hh(t.hasta), t: `<b>☐ ${esc(t.titulo)}</b>`, c: '#FF6B2C' }))].sort((a, b) => (a.h < b.h ? -1 : 1));
     const habitos = (ha.data || []).filter((h: any) => (h.dias || []).includes(dia));
     // racha
     const log = lo.data || [];
@@ -61,7 +66,7 @@ Deno.serve(async (req) => {
     const recs = (re.data || []).filter((r: any) => !(r.repetir === 'no' && r.hecho)).map((r: any) => ({ ...r, prox: proxima(r, hoy) }))
       .filter((r: any) => (r.repetir === 'no' && r.fecha < hoy) || dif(hoy, r.prox) <= 7).sort((a: any, b: any) => (a.prox < b.prox ? -1 : 1));
     const cumples = recs.filter((r: any) => r.tipo === 'cumple');
-    const tareas = recs.filter((r: any) => r.tipo !== 'cumple');
+    const pend = recs.filter((r: any) => r.tipo !== 'cumple');
     const pagados = new Set((fp.data || []).map((p: any) => p.fijo_id)); const dhoy = parse(hoy).getUTCDate();
     const fijos = (fi.data || []).filter((x: any) => !pagados.has(x.id) && x.dia_vto && (x.dia_vto < dhoy || x.dia_vto - dhoy <= 5));
     const movs = mo.data || [];
@@ -71,18 +76,22 @@ Deno.serve(async (req) => {
     const cab = ca.data || []; const proys = pr.data || [];
 
     const li = (t: string) => `<li style="margin:0 0 6px">${t}</li>`;
-    const sec = (titulo: string, body: string) => body ? `<h2 style="font:700 13px Arial;letter-spacing:1.5px;text-transform:uppercase;color:#C8102E;margin:26px 0 10px">${titulo}</h2>${body}` : '';
+    const sec = (titulo: string, body: string) => body ? `<h2 style="font:700 13px Arial;letter-spacing:1.5px;text-transform:uppercase;color:#FF6B2C;margin:26px 0 10px">${titulo}</h2>${body}` : '';
     const ul = (xs: string[]) => xs.length ? `<ul style="padding-left:18px;margin:0;font:15px/1.45 Arial;color:#1a1a1a">${xs.join('')}</ul>` : '';
     const d = parse(hoy);
 
     const html = `<div style="max-width:560px;margin:0 auto;padding:24px;background:#ffffff;font-family:Arial,sans-serif;color:#1a1a1a">
-      <div style="font:900 26px Arial;letter-spacing:1px">IVAN <span style="color:#C8102E">LUCA</span></div>
+      <div style="font:900 26px Arial;letter-spacing:1px;color:#0B1F3A">IVAN <span style="color:#FF6B2C">LUCA</span></div>
       <div style="color:#777;font-size:14px;margin-top:2px">${DIAS[dia]} ${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} · racha ${racha} ${racha === 1 ? 'día' : 'días'} 🔥</div>
-      ${sec('Estructura del día', (ru.data || []).length ? `<table style="border-collapse:collapse;width:100%;font:14px Arial">${(ru.data || []).map((b: any) => `<tr><td style="padding:6px 10px 6px 0;color:#777;white-space:nowrap;border-left:3px solid ${AREAS[b.area]?.c || '#999'};padding-left:10px">${String(b.desde).slice(0, 5)}–${String(b.hasta).slice(0, 5)}</td><td style="padding:6px 0">${esc(b.titulo)}</td></tr>`).join('')}</table>` : '<p style="color:#777">Día libre en la agenda.</p>')}
+      ${sec('Estructura del día', linea.length ? `<table style="border-collapse:collapse;width:100%;font:14px Arial">${linea.map((b) => `<tr><td style="padding:6px 10px 6px 0;color:#7A8AA0;white-space:nowrap;border-left:3px solid ${b.c};padding-left:10px">${b.h}${b.h2 ? '–' + b.h2 : ''}</td><td style="padding:6px 0">${b.t}</td></tr>`).join('')}</table>` : '<p style="color:#777">Día libre en la agenda.</p>')}
+      ${sec('Tareas de hoy', ul([
+        ...tkHoy.filter((t: any) => !t.hora).map((t: any) => li(`☐ ${t.prioridad === 1 ? '<b style="color:#FF6B2C">!</b> ' : ''}${esc(t.titulo)}`)),
+        ...tkAtr.map((t: any) => li(`☐ ${esc(t.titulo)} <span style="color:#E5484D;font-size:12px">(atrasada, era del ${fecha(t.fecha)})</span>`)),
+      ]))}
       ${sec('Misiones de hoy', ul(habitos.map((h: any) => li(`☐ ${esc(h.nombre)} <span style="color:${AREAS[h.area]?.c};font-size:12px">+${h.xp}</span>`))))}
       ${sec('Cosas a resolver', ul([
         ...fijos.map((x: any) => li(`💸 Pagar <b>${esc(x.concepto)}</b> · ${money(x.monto)} · ${x.dia_vto < dhoy ? '<b style="color:#C8102E">venció</b>' : 'vence'} el ${x.dia_vto}`)),
-        ...tareas.map((r: any) => li(`${r.tipo === 'vencimiento' ? '⏰' : '•'} ${esc(r.titulo)} · ${r.prox < hoy ? '<b style="color:#C8102E">vencido</b>' : r.prox === hoy ? '<b>hoy</b>' : fecha(r.prox)}`)),
+        ...pend.map((r: any) => li(`${r.tipo === 'vencimiento' ? '⏰' : '•'} ${esc(r.titulo)} · ${r.prox < hoy ? '<b style="color:#C8102E">vencido</b>' : r.prox === hoy ? '<b>hoy</b>' : fecha(r.prox)}`)),
         ...aCobrar.map((m: any) => li(`↓ Cobrar ${esc(m.detalle || m.categoria)} · ${money(m.monto)}`)),
         ...cab.slice(0, 6).map((c: any) => li(`☁ ${esc(c.texto)} <span style="color:#999;font-size:12px">(hace ${dif(String(c.creado).slice(0, 10), hoy)} d)</span>`)),
       ]))}
@@ -92,7 +101,7 @@ Deno.serve(async (req) => {
         li(`💰 ${MESES[d.getUTCMonth()]}: entró ${money(ingresos)}, salió ${money(gastos)}, te quedan <b>${money(ingresos - gastos)}</b>`),
         cab.length > 6 ? li(`Tenés ${cab.length} cosas abiertas en la Cabeza. Revisalas el domingo.`) : '',
       ]))}
-      <p style="margin-top:28px"><a href="https://ivanluca.vercel.app/#/hoy" style="background:#C8102E;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font:700 15px Arial;display:inline-block">Abrir Ivan Luca</a></p>
+      <p style="margin-top:28px"><a href="https://ivanluca.vercel.app/#/hoy" style="background:#FF6B2C;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font:700 15px Arial;display:inline-block">Abrir Ivan Luca</a></p>
     </div>`;
 
     if (soloVer) { out.push({ html }); continue; }
@@ -100,7 +109,7 @@ Deno.serve(async (req) => {
     if (!to) continue;
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: `Bearer ${resend}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: Deno.env.get('MAIL_FROM') || 'Ivan Luca <onboarding@resend.dev>', to: [to], subject: `Tu ${DIAS[dia].toLowerCase()}: ${habitos.length} misiones, ${fijos.length + tareas.length + cab.length} cosas a resolver`, html }),
+      body: JSON.stringify({ from: Deno.env.get('MAIL_FROM') || 'Ivan Luca <onboarding@resend.dev>', to: [to], subject: `Tu ${DIAS[dia].toLowerCase()}: ${habitos.length} misiones, ${tkHoy.length + tkAtr.length} tareas, ${fijos.length + pend.length + cab.length} cosas a resolver`, html }),
     });
     out.push({ to, status: r.status, body: await r.text() });
   }
