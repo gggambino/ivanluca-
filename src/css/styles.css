@@ -269,3 +269,32 @@ main{padding:28px 32px 120px;max-width:1100px;width:100%;min-width:0}
 .chk input{width:auto}
 .dia .add-tarea input[name=titulo]{flex:1 1 100%}
 @media (max-width:600px){.add-tarea input[name=titulo]{flex:1 1 100%}}
+
+/* Salud: calendario y rutinas */
+.row.g0{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.sm-player{min-width:200px;flex:0 1 260px}
+.ent-h{margin:10px 0 4px}
+.bloques-ent{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.b-ent{background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.b-ent ul{margin:4px 0 0;padding-left:18px;font-size:14px}
+.b-edit{border:1px solid var(--line);border-radius:10px;padding:10px;margin:0 0 10px;display:flex;flex-direction:column;gap:8px}
+.sal-sem{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.sd{display:flex;flex-direction:column;gap:8px;margin:0}
+.sd.hoy{border:2px solid var(--accent)}
+.sd-h{background:none;border:0;padding:0;text-align:left;font:inherit;font-size:16px;cursor:pointer;color:var(--ink)}
+.sd-ent{font-weight:600;font-size:14px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:8px 0}
+.cal-h{text-align:center;font:600 12px 'Barlow Condensed',sans-serif;color:var(--ink-3)}
+.cal-d{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-height:84px;padding:6px;display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;cursor:pointer;font:inherit;min-width:0;overflow:hidden}
+.cal-d:hover{border-color:var(--accent)}
+.cal-d.hoy{border:2px solid var(--accent)}
+.cal-d.fut{background:var(--surface-2)}
+.cal-d b{font-size:14px}
+.cal-e{font-size:11px;color:var(--accent);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-e.ok{color:var(--green)}
+.cal-e i{font-style:normal}
+.cal-k{font:600 12px 'Barlow Condensed',sans-serif}
+.rutinas{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.rutinas .card{margin:0}
+.red-bg{background:var(--red);border-color:var(--red);color:#fff}
+@media (max-width:600px){.cal{gap:3px}.cal-d{min-height:56px;padding:4px}.cal-e i{display:none}.rutinas{grid-template-columns:1fr}}

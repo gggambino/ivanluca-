@@ -10,6 +10,7 @@ import * as Proyectos from './views/proyectos.js';
 import * as Salud from './views/salud.js';
 import * as Perfil from './views/perfil.js';
 import * as Semana from './views/semana.js';
+import { sembrarEntrenos } from './views/entrenos.js';
 
 const app = document.getElementById('app');
 const NAV = [
@@ -88,6 +89,7 @@ async function arrancar(user) {
     await cargarTodo();
     if (await sembrarSiHaceFalta()) { await cargarTodo(); toast('Cargué tus datos iniciales de las planillas'); }
     await sembrarObjetivos();
+    await sembrarEntrenos();
     await Objetivos.revisarAutomaticos();
     render();
     if (await bbSesion()) sincronizarBB().then(async (r) => { if (r.ok) { await Objetivos.revisarAutomaticos(); render(); } });
