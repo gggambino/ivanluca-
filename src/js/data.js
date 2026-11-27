@@ -13,7 +13,7 @@ export const bb = window.supabase.createClient(BB_URL, BB_KEY, {
 export const S = {
   user: null, perfil: null,
   habitos: [], log: [], cabeza: [], movs: [], fijos: [], fijosPagos: [],
-  proyectos: [], recordatorios: [], rutina: [], salud: [], ingBB: [], objetivos: [], comidas: [], tareas: [], diasPlan: [], entrenos: [], entPlan: [], deseos: [], gymFijos: [], gymGastos: [],
+  proyectos: [], recordatorios: [], rutina: [], salud: [], ingBB: [], objetivos: [], comidas: [], tareas: [], diasPlan: [], entrenos: [], entPlan: [], deseos: [], gymFijos: [], gymGastos: [], fijosMontos: [],
   bbUser: null,
 };
 
@@ -21,7 +21,7 @@ const chk = (r) => { if (r.error) throw r.error; return r.data || []; };
 
 export async function cargarTodo() {
   const desde = addDias(hoy(), -400);
-  const [pe, ha, lo, ca, mo, fi, fp, pr, re, ru, sa, ib, ob, co, ta, dp, en, ep, de, gf, gg] = await Promise.all([
+  const [pe, ha, lo, ca, mo, fi, fp, pr, re, ru, sa, ib, ob, co, ta, dp, en, ep, de, gf, gg, fm] = await Promise.all([
     sb.from('perfil').select('*').maybeSingle(),
     sb.from('habitos').select('*').order('orden'),
     sb.from('habito_log').select('*').gte('fecha', desde),
@@ -42,6 +42,7 @@ export async function cargarTodo() {
     sb.from('entreno_plan').select('*').gte('fecha', addDias(hoy(), -400)),
     sb.from('deseos').select('*').order('prioridad').order('creado'),
     sb.from('gym_fijos').select('*').order('orden').order('creado'),
+    sb.from('fijos_montos').select('*').order('mes'),
     sb.from('gym_gastos').select('*').gte('fecha', desde).order('fecha', { ascending: false }),
   ]);
   if (pe.error) throw pe.error;
@@ -50,7 +51,7 @@ export async function cargarTodo() {
   S.fijos = chk(fi); S.fijosPagos = chk(fp); S.proyectos = chk(pr); S.recordatorios = chk(re);
   S.rutina = chk(ru); S.salud = chk(sa); S.ingBB = chk(ib); S.objetivos = chk(ob); S.comidas = chk(co); S.tareas = chk(ta);
   S.diasPlan = dp.error ? [] : dp.data.map((x) => x.fecha);
-  S.entrenos = en.error ? [] : en.data; S.entPlan = ep.error ? [] : ep.data; S.deseos = de.error ? [] : de.data; S.gymFijos = gf.error ? [] : gf.data; S.gymGastos = gg.error ? [] : gg.data;
+  S.entrenos = en.error ? [] : en.data; S.entPlan = ep.error ? [] : ep.data; S.deseos = de.error ? [] : de.data; S.gymFijos = gf.error ? [] : gf.data; S.gymGastos = gg.error ? [] : gg.data; S.fijosMontos = fm.error ? [] : fm.data;
 }
 
 // Primera vez: carga los datos iniciales tomados de las planillas de Ivan.

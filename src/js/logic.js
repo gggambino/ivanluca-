@@ -92,6 +92,15 @@ export function costosGym(mes, conCobros = true) {
   const tFijos = sum(fijos, (x) => x.monto); const tOtros = sum(otros, (g) => g.monto);
   return { fijos, otros, tFijos, tOtros, total: tFijos + tOtros };
 }
+// Gastos fijos personales mes a mes: valen desde/hasta su mes. El monto de un mes sale de:
+// 1) un cambio "solo este mes", 2) el último cambio "de acá en adelante" hasta ese mes, 3) el monto base.
+export const fijoVigente = (f, mes) => f.activo && (!f.desde || f.desde <= mes) && (!f.hasta || mes <= f.hasta);
+export function montoFijoMes(f, mes) {
+  const xs = (S.fijosMontos || []).filter((x) => x.fijo_id === f.id);
+  const solo = xs.find((x) => x.solo_mes && x.mes === mes); if (solo) return Number(solo.monto);
+  const prev = xs.filter((x) => !x.solo_mes && x.mes <= mes).sort((a, b) => (a.mes < b.mes ? 1 : -1))[0];
+  return Number(prev ? prev.monto : f.monto);
+}
 export function resumenMes(mes) {
   const bbIng = S.ingBB.filter((x) => mesDe(x.fecha) === mes);
   const bbBruto = sum(bbIng, (x) => x.monto);
@@ -102,11 +111,11 @@ export function resumenMes(mes) {
   const aCobrar = movs.filter((m) => m.tipo === 'ingreso' && m.estado === 'pendiente');
   const gastosVar = movs.filter((m) => m.tipo === 'gasto' && m.estado === 'hecho');
   const aPagar = movs.filter((m) => m.tipo === 'gasto' && m.estado === 'pendiente');
-  const fijosAct = S.fijos.filter((f) => f.activo);
+  const fijosAct = S.fijos.filter((f) => fijoVigente(f, mes));
   const pagos = S.fijosPagos.filter((p) => p.mes === mes);
   const pagadoFijo = (f) => pagos.find((p) => p.fijo_id === f.id);
-  const fijosPagados = sum(fijosAct.filter(pagadoFijo), (f) => pagadoFijo(f).monto ?? f.monto);
-  const fijosPend = fijosAct.filter((f) => !pagadoFijo(f));
+  const fijosPagados = sum(fijosAct.filter(pagadoFijo), (f) => pagadoFijo(f).monto ?? montoFijoMes(f, mes));
+  const fijosPend = fijosAct.filter((f) => !pagadoFijo(f)).map((f) => ({ ...f, monto: montoFijoMes(f, mes) }));
   const ingresos = bbNeto + sum(ingManual, (x) => x.monto);
   const gastos = sum(gastosVar, (x) => x.monto) + fijosPagados;
   return {
@@ -115,7 +124,7 @@ export function resumenMes(mes) {
     resultado: ingresos - gastos,
     aCobrar: sum(aCobrar, (x) => x.monto), aCobrarItems: aCobrar,
     aPagar: sum(aPagar, (x) => x.monto) + sum(fijosPend, (f) => f.monto), fijosPend, aPagarItems: aPagar,
-    totalFijos: sum(fijosAct, (f) => f.monto), movs, pagadoFijo,
+    totalFijos: sum(fijosAct, (f) => montoFijoMes(f, mes)), fijosAct, movs, pagadoFijo,
     porCategoria: Object.entries(gastosVar.reduce((o, m) => { const k = m.categoria || 'Otros'; o[k] = (o[k] || 0) + Number(m.monto); return o; }, {})).sort((a, b) => b[1] - a[1]),
     porFuente: Object.entries([...ingManual, ...(bbBruto || gym.total ? [{ categoria: 'Gym neto (Base Bambino)', monto: bbNeto }] : [])].reduce((o, m) => { const k = m.categoria || 'Otro'; o[k] = (o[k] || 0) + Number(m.monto); return o; }, {})).sort((a, b) => b[1] - a[1]),
   };

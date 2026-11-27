@@ -26,7 +26,7 @@ function cuentasEntre(a, b) {
   const fijos = [];
   for (let f = a; f <= b; f = addDias(f, 1)) {
     const d = parse(f).getDate(); const mes = mesDe(f);
-    S.fijos.filter((x) => x.activo && x.dia_vto === d).forEach((x) => { if (!S.fijosPagos.some((p) => p.fijo_id === x.id && p.mes === mes)) fijos.push({ k: 'f', id: x.id, mes, f, t: x.concepto, monto: Number(x.monto), venc: f < hoy() }); });
+    S.fijos.filter((x) => L.fijoVigente(x, mes) && x.dia_vto === d).forEach((x) => { if (!S.fijosPagos.some((p) => p.fijo_id === x.id && p.mes === mes)) fijos.push({ k: 'f', id: x.id, mes, f, t: x.concepto, monto: L.montoFijoMes(x, mes), venc: f < hoy() }); });
   }
   // fijos ya vencidos del mes en curso que siguen sin pagar
   if (a <= hoy() && hoy() <= b) L.fijosPorVencer(0).filter((x) => x.vencido).forEach((x) => { if (!fijos.some((y) => y.id === x.id)) fijos.push({ k: 'f', id: x.id, mes: mesDe(hoy()), f: `${mesDe(hoy())}-${String(x.dia_vto).padStart(2, '0')}`, t: x.concepto, monto: Number(x.monto), venc: true }); });
@@ -150,7 +150,7 @@ function curva(mes) {
 function mesHtml() {
   const mes = mesDe(sel); const R = L.resumenMes(mes); const P = L.resumenMes(mesDe(addDias(mes + '-01', -1)));
   const g = gastosDe(R.movs); const cats = porCat(g);
-  const fijosPag = S.fijos.filter((f) => f.activo && R.pagadoFijo(f)).map((f) => [f.concepto, Number(R.pagadoFijo(f).monto ?? f.monto)]);
+  const fijosPag = R.fijosAct.filter((f) => R.pagadoFijo(f)).map((f) => [f.concepto, Number(R.pagadoFijo(f).monto ?? L.montoFijoMes(f, mes))]);
   const secciones = [...(R.fijosPagados ? [['Gastos fijos', R.fijosPagados]] : []), ...cats];
   const gano = R.resultado >= 0; const pctAhorro = R.ingresos ? Math.round((R.resultado / R.ingresos) * 100) : 0;
   const vs = (a, b) => (b ? `${a >= b ? '▲' : '▼'} ${Math.abs(Math.round(((a - b) / b) * 100))}% vs ${MESES[Number(mesDe(addDias(mes + '-01', -1)).slice(5)) - 1]}` : '');
@@ -223,22 +223,55 @@ function analisisHtml(mes) {
 }
 
 // ---------- Fijos y cuentas ----------
+// Mes que se está mirando en Cuentas (fijos, día a día y gym). Se navega hacia atrás y hacia adelante.
+let mesCta = mesDe(hoy());
+const mesMas = (mes, n) => { const d = parse(mes + '-01'); d.setMonth(d.getMonth() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 function cuentasHtml() {
-  const mes = mesDe(hoy()); const R = L.resumenMes(mes); const sync = (() => { try { return localStorage.getItem('il-bb-sync'); } catch { return null; } })();
+  const mes = mesCta; const R = L.resumenMes(mes); const sync = (() => { try { return localStorage.getItem('il-bb-sync'); } catch { return null; } })();
+  const ant = mesMas(mes, -1); const Ra = L.resumenMes(ant);
   const pend = S.movs.filter((m) => m.estado === 'pendiente').sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
-  return `<div class="grid2">
+  const futuro = mes > mesDe(hoy()); const pasado = mes < mesDe(hoy());
+  const vars = gastosDe(R.movs); const tVar = sum(vars, (m) => m.monto);
+  const nuevos = R.fijosAct.filter((f) => !L.fijoVigente(f, ant));
+  const terminan = Ra.fijosAct.filter((f) => !L.fijoVigente(f, mes));
+  const meses = Array.from({ length: 7 }, (_, i) => mesMas(mes, i - 3));
+  return `<div class="mes-nav">
+      <button class="btn sm ghost" data-cmes="-1" aria-label="Mes anterior">‹</button>
+      <div class="mes-chips">${meses.map((m) => `<button class="mchip ${m === mes ? 'on' : ''} ${m === mesDe(hoy()) ? 'hoy' : ''}" data-cmesir="${m}">${MESES[Number(m.slice(5)) - 1].slice(0, 3)}<small>${m.slice(2, 4)}</small></button>`).join('')}</div>
+      <button class="btn sm ghost" data-cmes="1" aria-label="Mes siguiente">›</button>
+      ${mes !== mesDe(hoy()) ? '<button class="btn sm" data-cmesir="' + mesDe(hoy()) + '">Hoy</button>' : ''}
+    </div>
+    <h2 class="mes-tit">${esc(mesLabel(mes))} ${futuro ? '<small class="chip" style="--c:var(--blue, #2563EB)">planificado</small>' : pasado ? '<small class="chip" style="--c:var(--ink-3, #8A9AB0)">pasado · editable</small>' : '<small class="chip" style="--c:var(--orange, #FF6B2C)">este mes</small>'}</h2>
+    <div class="stats4">
+      <div class="card stat"><span>Fijos del mes</span><b>${money(R.totalFijos)}</b><small>${R.totalFijos === Ra.totalFijos ? 'igual que ' + MESES[Number(ant.slice(5)) - 1] : `${R.totalFijos > Ra.totalFijos ? '▲' : '▼'} ${money(Math.abs(R.totalFijos - Ra.totalFijos))} vs ${MESES[Number(ant.slice(5)) - 1]}`}</small></div>
+      <div class="card stat"><span>Fijos pagados</span><b class="green">${money(R.fijosPagados)}</b><small>${R.fijosAct.filter(R.pagadoFijo).length} de ${R.fijosAct.length}</small></div>
+      <div class="card stat"><span>Falta pagar</span><b class="${R.fijosPend.length ? 'red' : ''}">${money(sum(R.fijosPend, (f) => f.monto))}</b><small>${R.fijosPend.length} fijos</small></div>
+      <div class="card stat"><span>Día a día</span><b>${money(tVar)}</b><small>${vars.length} gastos</small></div>
+    </div>
+    <div class="grid2">
     <section class="card">
-      <div class="row sp"><h2>Gastos fijos · ${esc(mesLabel(mes))}</h2><button class="btn sm primary" id="b-fijo-new">+ Agregar</button></div>
-      <p class="muted sm">${money(R.totalFijos)} por mes · ${money(R.fijosPagados)} pagados</p>
-      <ul class="list">${S.fijos.filter((f) => f.activo).map((f) => { const p = R.pagadoFijo(f);
-        return `<li><span class="t">${esc(f.concepto)}${f.dia_vto ? ` <small class="muted">vence el ${f.dia_vto}</small>` : ''}</span><span>${money(p?.monto ?? f.monto)}</span>
-        <button class="btn sm ${p ? 'ok' : ''}" data-fijo="${f.id}">${p ? '✓ Pagado' : 'Pagar'}</button><button class="btn sm ghost" data-fijo-edit="${f.id}" aria-label="Editar ${esc(f.concepto)}">✎</button></li>`; }).join('') || vacio('Sin gastos fijos. Agregá el primero.')}</ul>
+      <div class="row sp"><h2>Gastos fijos</h2><button class="btn sm primary" id="b-fijo-new">+ Agregar${futuro || pasado ? ' desde ' + esc(MESES[Number(mes.slice(5)) - 1]) : ''}</button></div>
+      ${nuevos.length || terminan.length ? `<p class="sm">${nuevos.length ? `🆕 Empiezan este mes: ${nuevos.map((f) => esc(f.concepto)).join(', ')}. ` : ''}${terminan.length ? `👋 Dejaron de estar: ${terminan.map((f) => esc(f.concepto)).join(', ')}.` : ''}</p>` : ''}
+      <ul class="list">${R.fijosAct.map((f) => { const p = R.pagadoFijo(f); const mm = L.montoFijoMes(f, mes); const ma = L.fijoVigente(f, ant) ? L.montoFijoMes(f, ant) : null;
+        const solo = (S.fijosMontos || []).some((x) => x.fijo_id === f.id && x.solo_mes && x.mes === mes);
+        return `<li class="fijo ${p ? 'pago' : ''}"><span class="t">${esc(f.concepto)}${f.dia_vto ? ` <small class="muted">vence el ${f.dia_vto}</small>` : ''}${solo ? ' <small class="chip" style="--c:var(--amber)">solo este mes</small>' : ma !== null && ma !== mm ? ` <small class="${mm > ma ? 'red' : 'green'}">${mm > ma ? '▲' : '▼'} antes ${money(ma)}</small>` : ''}</span>
+        <b>${money(p?.monto ?? mm)}</b>
+        ${futuro ? '' : `<button class="btn sm ${p ? 'ok' : ''}" data-fijo="${f.id}">${p ? '✓ Pagado' : 'Pagar'}</button>`}<button class="btn sm ghost" data-fijo-edit="${f.id}" aria-label="Editar ${esc(f.concepto)}">✎</button></li>`; }).join('') || vacio('Sin gastos fijos este mes. Agregá el primero.')}</ul>
+      <p class="muted sm">Cada fijo se repite solo en los meses siguientes. Con ✎ cambiás el monto de este mes solo o de este mes en adelante, o lo das de baja.</p>
     </section>
     <section class="card">
-      <h2>Pendientes</h2>
-      <ul class="list movs">${pend.map((m) => movLi(m, true)).join('') || vacio('Nada pendiente de pagar ni cobrar.')}</ul>
+      <div class="row sp"><h2>Gastos del día a día</h2><b>${money(tVar)}</b></div>
+      <form id="f-var" class="row g wrap"><input name="monto" type="number" inputmode="decimal" min="0" step="any" placeholder="Monto" required><input name="detalle" placeholder="Detalle (ej: Coto)">
+        <select name="categoria">${catsGasto().map((c) => `<option>${esc(c)}</option>`).join('')}</select>
+        <input name="fecha" type="date" value="${mes === mesDe(hoy()) ? hoy() : mes + '-01'}" min="${mes}-01" max="${addDias(mesMas(mes, 1) + '-01', -1)}" required><button class="btn sm primary">Agregar</button></form>
+      ${tVar ? `<div class="mt">${catBars(porCat(vars), tVar)}</div>` : ''}
+      <ul class="list movs mt">${R.movs.filter((m) => m.tipo === 'gasto').map((m) => movLi(m, true)).join('') || vacio(futuro ? 'Podés anotar gastos que ya sabés que vas a tener.' : 'Sin gastos del día a día este mes.')}</ul>
     </section>
   </div>
+  <section class="card">
+    <h2>Pendientes de pagar o cobrar</h2>
+    <ul class="list movs">${pend.map((m) => movLi(m, true)).join('') || vacio('Nada pendiente de pagar ni cobrar.')}</ul>
+  </section>
   <section class="card">
     <h2>Categorías de gastos</h2>
     <p class="muted sm">Son las secciones en las que se divide tu plata. Agregá, renombrá o borrá las que quieras (separadas por coma).</p>
@@ -249,13 +282,12 @@ function cuentasHtml() {
 }
 
 // ---------- Gym: cobros de Base Bambino menos costos del gym = lo que te queda ----------
-let mesGym = null;
+
 function gymHtml(sync) {
-  const mes = mesGym || mesDe(hoy()); const R = L.resumenMes(mes); const G = L.costosGym(mes, true);
+  const mes = mesCta; const R = L.resumenMes(mes); const G = L.costosGym(mes, true);
   const vig = S.gymFijos.filter((f) => L.fijoGymVigente(f, mes));
-  const navG = `<div class="mes"><button class="btn sm ghost" data-gmes="-1" aria-label="Mes anterior">‹</button><b>${esc(mesLabel(mes))}</b><button class="btn sm ghost" data-gmes="1" aria-label="Mes siguiente">›</button></div>`;
   return `<section class="card" id="gym">
-    <div class="row sp wrap"><h2>Gym: lo que te queda (neto)</h2>${navG}</div>
+    <h2>Gym: lo que te queda (neto) · ${esc(mesLabel(mes))}</h2>
     <p class="sm">${S.bbUser ? `Base Bambino conectado como ${esc(S.bbUser.email)}. ${sync ? 'Última actualización: ' + new Date(sync).toLocaleString('es-AR') + '.' : ''}` : 'Base Bambino no está conectado. Entrá con tu usuario para traer los cobros solos. No se modifica nada allá.'}</p>
     <div class="row g">${S.bbUser ? '<button class="btn sm" id="bb-sync">Actualizar ahora</button><button class="btn sm ghost" id="bb-out">Desconectar</button>' : '<button class="btn sm primary" id="bb-in">Conectar Base Bambino</button>'}</div>
     <table class="eerr mt">
@@ -395,7 +427,7 @@ function editarMov(m, tipo, rerender) {
 }
 
 async function pagarFijo(f, mes, rerender) {
-  modal(`Pagar ${f.concepto}`, `<form id="f-fp" class="stack"><label>Monto pagado en ${esc(mesLabel(mes))}<input name="monto" type="number" inputmode="decimal" value="${f.monto}" required></label><button class="btn primary">Marcar pagado</button></form>`, (m) => {
+  modal(`Pagar ${f.concepto}`, `<form id="f-fp" class="stack"><label>Monto pagado en ${esc(mesLabel(mes))}<input name="monto" type="number" inputmode="decimal" value="${L.montoFijoMes(f, mes)}" required></label><button class="btn primary">Marcar pagado</button></form>`, (m) => {
     m.querySelector('#f-fp').onsubmit = async (e) => {
       e.preventDefault();
       const r = await sb.from('fijos_pagos').insert({ fijo_id: f.id, mes, monto: Number(e.target.monto.value) }).select().single();
@@ -445,43 +477,77 @@ export function mount(v, rerender) {
     if (r.error) return toast(errorMsg(r.error), true); S.perfil.categorias_gasto = xs; toast('Categorías guardadas'); rerender();
   };
   on('[data-fijo]', async (b) => {
-    const f = S.fijos.find((x) => x.id === b.dataset.fijo); const mes = mesDe(hoy());
+    const f = S.fijos.find((x) => x.id === b.dataset.fijo); const mes = mesCta;
     const p = S.fijosPagos.find((x) => x.fijo_id === f.id && x.mes === mes);
     if (!p) return pagarFijo(f, mes, rerender);
     const r = await sb.from('fijos_pagos').delete().eq('id', p.id);
     if (r.error) return toast(errorMsg(r.error), true);
     S.fijosPagos = S.fijosPagos.filter((x) => x.id !== p.id); rerender();
   });
-  const editarFijo = (f) => modal(f ? 'Editar gasto fijo' : 'Nuevo gasto fijo', `<form id="f-fe" class="stack">
-      <label>Concepto<input name="concepto" value="${esc(f?.concepto || '')}" placeholder="Ej: Internet, monotributo, gimnasio" required></label>
-      <div class="row g"><label>Monto por mes<input name="monto" type="number" inputmode="decimal" min="0" step="any" value="${f?.monto ?? ''}" required></label>
+  // Editor de un fijo mirando un mes: el monto se cambia solo para ese mes o de ese mes en adelante
+  const editarFijo = (f) => { const mes = mesCta; const nm = MESES[Number(mes.slice(5)) - 1]; const pago = f && S.fijosPagos.find((x) => x.fijo_id === f.id && x.mes === mes);
+    const actual = f ? L.montoFijoMes(f, mes) : '';
+    modal(f ? `${f.concepto} · ${mesLabel(mes)}` : `Nuevo gasto fijo desde ${mesLabel(mes)}`, `<form id="f-fe" class="stack">
+      <label>Concepto<input name="concepto" value="${esc(f?.concepto || '')}" placeholder="Ej: Internet, monotributo, alquiler" required></label>
+      <div class="row g"><label>Monto${f ? ' en ' + esc(nm) : ' por mes'}<input name="monto" type="number" inputmode="decimal" min="0" step="any" value="${pago?.monto ?? actual}" required></label>
       <label>Día de vencimiento<input name="dia_vto" type="number" inputmode="numeric" min="1" max="31" value="${f?.dia_vto ?? ''}" placeholder="1 a 31"></label></div>
-      <p class="muted sm">Con el día de vencimiento te aviso en Hoy, en Plata y en el mail de las 7 AM.</p>
-      <div class="row sp"><button class="btn primary">Guardar</button>${f ? '<button type="button" class="btn ghost red" id="b-fe-del">Dar de baja</button>' : ''}</div></form>`, (m) => {
+      ${f ? `<div class="seg"><label class="pick"><input type="radio" name="alc" value="adelante" checked><span>De ${esc(nm)} en adelante</span></label><label class="pick"><input type="radio" name="alc" value="solo"><span>Solo ${esc(nm)}</span></label></div>
+      <p class="muted sm">Los meses anteriores no cambian.${pago ? ` Este mes ya está pagado: también se corrige lo que pagaste.` : ''}</p>` : '<p class="muted sm">Se repite todos los meses desde este. Con el día de vencimiento te aviso en Hoy, en Plata y en el mail de las 7 AM.</p>'}
+      <div class="row sp"><button class="btn primary">Guardar</button>${f ? `<button type="button" class="btn ghost red" id="b-fe-del">Dar de baja desde ${esc(nm)}</button>` : ''}</div></form>`, (m) => {
     const form = m.querySelector('#f-fe');
     form.onsubmit = async (e) => {
       e.preventDefault();
-      const row = { concepto: form.concepto.value.trim(), monto: Number(form.monto.value), dia_vto: form.dia_vto.value ? Number(form.dia_vto.value) : null };
-      if (row.dia_vto !== null && (row.dia_vto < 1 || row.dia_vto > 31)) return toast('El día tiene que ser entre 1 y 31', true);
-      const r = f ? await sb.from('gastos_fijos').update(row).eq('id', f.id).select().single()
-        : await sb.from('gastos_fijos').insert({ ...row, orden: S.fijos.length }).select().single();
-      if (r.error) return toast(errorMsg(r.error), true);
-      if (f) Object.assign(f, row); else S.fijos.push(r.data);
-      cerrarModal(); toast(f ? 'Gasto fijo actualizado' : 'Gasto fijo agregado'); rerender();
+      const monto = Number(form.monto.value); const base = { concepto: form.concepto.value.trim(), dia_vto: form.dia_vto.value ? Number(form.dia_vto.value) : null };
+      if (base.dia_vto !== null && (base.dia_vto < 1 || base.dia_vto > 31)) return toast('El día tiene que ser entre 1 y 31', true);
+      if (!f) {
+        const r = await sb.from('gastos_fijos').insert({ ...base, monto, desde: mes, orden: S.fijos.length }).select().single();
+        if (r.error) return toast(errorMsg(r.error), true);
+        S.fijos.push(r.data); cerrarModal(); toast(`Agregado desde ${mesLabel(mes)}`); return rerender();
+      }
+      const r = await sb.from('gastos_fijos').update(base).eq('id', f.id);
+      if (r.error) return toast(errorMsg(r.error), true); Object.assign(f, base);
+      const solo = form.alc.value === 'solo';
+      if (monto !== actual || solo) {
+        // si el cambio es "de acá en adelante" y este mes es el primero del fijo, cambio el monto base
+        if (!solo && (!f.desde || mes <= f.desde) && !(S.fijosMontos || []).some((x) => x.fijo_id === f.id && !x.solo_mes && x.mes <= mes)) {
+          const u = await sb.from('gastos_fijos').update({ monto }).eq('id', f.id); if (u.error) return toast(errorMsg(u.error), true); f.monto = monto;
+        } else {
+          const u = await sb.from('fijos_montos').upsert({ fijo_id: f.id, mes, monto, solo_mes: solo }, { onConflict: 'fijo_id,mes,solo_mes' }).select().single();
+          if (u.error) return toast(errorMsg(u.error), true);
+          S.fijosMontos = (S.fijosMontos || []).filter((x) => !(x.fijo_id === f.id && x.mes === mes && x.solo_mes === solo)); S.fijosMontos.push(u.data);
+        }
+        if (!solo) { // un cambio "en adelante" pisa el "solo este mes" de ese mismo mes
+          const viejo = (S.fijosMontos || []).find((x) => x.fijo_id === f.id && x.mes === mes && x.solo_mes);
+          if (viejo) { await sb.from('fijos_montos').delete().eq('id', viejo.id); S.fijosMontos = S.fijosMontos.filter((x) => x.id !== viejo.id); }
+        }
+      }
+      if (pago && Number(pago.monto) !== monto) { const u = await sb.from('fijos_pagos').update({ monto }).eq('id', pago.id); if (u.error) return toast(errorMsg(u.error), true); pago.monto = monto; }
+      cerrarModal(); toast(solo ? `Cambiado solo en ${mesLabel(mes)}` : `Actualizado desde ${mesLabel(mes)}`); rerender();
     };
     const del = m.querySelector('#b-fe-del');
     if (del) del.onclick = async () => {
-      if (del.dataset.armed !== '1') { del.dataset.armed = '1'; del.textContent = '¿Seguro? Tocá de nuevo'; return; }
-      const r = await sb.from('gastos_fijos').update({ activo: false }).eq('id', f.id);
+      if (del.dataset.armed !== '1') { del.dataset.armed = '1'; del.textContent = `¿Seguro? Deja de contar desde ${nm}`; return; }
+      const hasta = mesMas(mes, -1);
+      const r = await sb.from('gastos_fijos').update({ hasta }).eq('id', f.id);
       if (r.error) return toast(errorMsg(r.error), true);
-      f.activo = false; cerrarModal(); toast('Dado de baja. Lo podés reactivar en Perfil > Gastos fijos'); rerender();
+      f.hasta = hasta; cerrarModal(); toast(`Dado de baja desde ${mesLabel(mes)}. Los meses anteriores quedan igual`); rerender();
     };
-  });
+  }); };
   on('#b-fijo-new', () => editarFijo());
-  on('[data-gmes]', (b) => { const d = parse((mesGym || mesDe(hoy())) + '-01'); d.setMonth(d.getMonth() + Number(b.dataset.gmes)); mesGym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; rerender(); });
+  on('[data-cmes]', (b) => { mesCta = mesMas(mesCta, Number(b.dataset.cmes)); rerender(); });
+  on('[data-cmesir]', (b) => { mesCta = b.dataset.cmesir; rerender(); });
+  const fv = v.querySelector('#f-var'); if (fv) fv.onsubmit = async (e) => {
+    e.preventDefault();
+    const row = { tipo: 'gasto', monto: Number(fv.monto.value), detalle: fv.detalle.value.trim() || null, categoria: fv.categoria.value, fecha: fv.fecha.value, medio: 'Efectivo', estado: 'hecho' };
+    if (!(row.monto > 0)) return toast('Poné un monto', true);
+    const r = await sb.from('movimientos').insert(row).select().single();
+    if (r.error) return toast(errorMsg(r.error), true);
+    S.movs.unshift(r.data); S.movs.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    await revisarAutomaticos(); toast(`−${money(row.monto)} en ${row.categoria}`); rerender();
+  };
   on('#b-gf-new', () => editarGymFijo(null, rerender));
   on('[data-gf-ed]', (b) => editarGymFijo(S.gymFijos.find((x) => x.id === b.dataset.gfEd), rerender));
-  on('[data-gf-mes]', (b) => ajustarGymMes(S.gymFijos.find((x) => x.id === b.dataset.gfMes), mesGym || mesDe(hoy()), rerender));
+  on('[data-gf-mes]', (b) => ajustarGymMes(S.gymFijos.find((x) => x.id === b.dataset.gfMes), mesCta, rerender));
   on('[data-gg-ed]', (b) => editarGymGasto(S.gymGastos.find((x) => x.id === b.dataset.ggEd), rerender));
   const fgg = v.querySelector('#f-gg'); if (fgg) fgg.onsubmit = async (e) => {
     e.preventDefault(); const row = { concepto: fgg.concepto.value.trim(), monto: Number(fgg.monto.value), fecha: fgg.fecha.value };

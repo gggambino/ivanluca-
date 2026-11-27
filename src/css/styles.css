@@ -370,3 +370,16 @@ ul.mini li.resuelto,ul.mini li.no_importaba{text-decoration:line-through;opacity
 .cmp-b span{position:absolute;left:0;top:0;bottom:0;border-radius:99px;max-width:100%}
 .cmp-b i{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);border-radius:2px}
 .aviso-cierre{border-left:4px solid var(--green)} .aviso-cierre.mal{border-left-color:var(--red)} .aviso-cierre span{font-size:14px}
+/* Cuentas mes a mes */
+.mes-nav{display:flex;align-items:center;gap:6px;margin:4px 0 6px;flex-wrap:nowrap}
+.mes-nav>.btn{flex:0 0 auto}
+@media (max-width:560px){.mchip{min-width:40px;padding:5px 6px}}
+.mes-chips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1 1 auto;min-width:0}
+.mchip{display:flex;flex-direction:column;align-items:center;min-width:46px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font:700 14px 'Barlow Condensed',sans-serif;text-transform:capitalize;color:var(--ink-2);cursor:pointer}
+.mchip small{font-weight:500;font-size:11px;color:var(--ink-3)}
+.mchip.hoy{border-color:var(--orange, #FF6B2C)}
+.mchip.on{background:var(--navy);color:#fff;border-color:var(--navy)} .mchip.on small{color:#cfd6e2}
+.mes-tit{margin:6px 0 10px;text-transform:capitalize;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mes-tit .chip{text-transform:none}
+li.fijo.pago .t{color:var(--ink-2)}
+#f-var>*{width:auto;min-width:0} #f-var input[name=monto]{flex:1 1 90px} #f-var input[name=detalle]{flex:2 1 140px} #f-var select{flex:1 1 120px} #f-var input[name=fecha]{flex:1 1 130px}

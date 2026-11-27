@@ -45,14 +45,14 @@ Deno.serve(async (req) => {
 
   for (const P of perfiles || []) {
     const u = P.user_id; const q = (t: string) => db.from(t).select('*').eq('user_id', u);
-    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk, dp, gf, gg] = await Promise.all([
+    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk, dp, gf, gg, fm] = await Promise.all([
       q('rutina').eq('dia', dia).order('desde'), q('habitos').eq('activo', true).order('orden'),
       q('habito_log').gte('fecha', addDias(hoy, -60)), q('cabeza').eq('estado', 'abierto').order('creado'),
       q('recordatorios'), q('gastos_fijos').eq('activo', true), q('fijos_pagos').eq('mes', mes),
       q('movimientos').gte('fecha', mes + '-01'), q('proyectos').eq('estado', 'en_curso').order('prioridad'), q('ingresos_bb').gte('fecha', mes + '-01'),
       q('tareas').eq('hecho', false).lte('fecha', hoy).gte('fecha', addDias(hoy, -30)).order('hora', { nullsFirst: false }),
       q('dias_plan').eq('fecha', hoy),
-      q('gym_fijos'), q('gym_gastos').gte('fecha', mes + '-01'),
+      q('gym_fijos'), q('gym_gastos').gte('fecha', mes + '-01'), q('fijos_montos'),
     ]);
     const todas = tk.data || []; const bloquesPropios = todas.filter((t: any) => t.es_bloque && t.fecha === hoy);
     const tks = todas.filter((t: any) => !t.es_bloque); const tkHoy = tks.filter((t: any) => t.fecha === hoy); const tkAtr = tks.filter((t: any) => t.fecha < hoy);
@@ -74,7 +74,10 @@ Deno.serve(async (req) => {
     const cumples = recs.filter((r: any) => r.tipo === 'cumple');
     const pend = recs.filter((r: any) => r.tipo !== 'cumple');
     const pagados = new Set((fp.data || []).map((p: any) => p.fijo_id)); const dhoy = parse(hoy).getUTCDate();
-    const fijos = (fi.data || []).filter((x: any) => !pagados.has(x.id) && x.dia_vto && (x.dia_vto < dhoy || x.dia_vto - dhoy <= 5));
+    // fijos vigentes este mes, con el monto que corresponde a este mes
+    const fms = fm.data || [];
+    const montoMes = (x: any) => { const xs = fms.filter((m: any) => m.fijo_id === x.id); const so = xs.find((m: any) => m.solo_mes && m.mes === mes); if (so) return Number(so.monto); const pv = xs.filter((m: any) => !m.solo_mes && m.mes <= mes).sort((a: any, b: any) => (a.mes < b.mes ? 1 : -1))[0]; return Number(pv ? pv.monto : x.monto); };
+    const fijos = (fi.data || []).filter((x: any) => (!x.desde || x.desde <= mes) && (!x.hasta || mes <= x.hasta) && !pagados.has(x.id) && x.dia_vto && (x.dia_vto < dhoy || x.dia_vto - dhoy <= 5)).map((x: any) => ({ ...x, monto: montoMes(x) }));
     const movs = mo.data || [];
     const aCobrar = movs.filter((m: any) => m.tipo === 'ingreso' && m.estado === 'pendiente');
     // gym neto = cobros de Base Bambino − costos del gym (fijos vigentes, con ajuste del mes si hay, + otros gastos)
