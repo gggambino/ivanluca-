@@ -4,6 +4,7 @@ import { esc, hoy, money, fecha, fechaLarga, MESES, DIAS, parse, addDias, sum } 
 import * as L from '../logic.js';
 import { toast, errorMsg, vacio, bar, modal, cerrarModal } from '../ui.js';
 import { revisarAutomaticos } from './objetivos.js';
+import * as Deseos from './deseos.js';
 
 let tab = 'dia';
 let sel = hoy();
@@ -33,12 +34,12 @@ function cuentasEntre(a, b) {
 }
 
 export function html() {
-  const tabs = [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'], ['cuentas', 'Cuentas']];
+  const tabs = [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'], ['cuentas', 'Cuentas'], ['deseos', 'Deseos']];
   return `
   <header class="top"><div><p class="muted up">Ingresos, gastos y resultado</p><h1>Plata</h1></div>
     <div class="row g"><button class="btn primary" data-nuevo="gasto">+ Gasto</button><button class="btn" data-nuevo="ingreso">+ Ingreso</button></div></header>
   <nav class="tabs">${tabs.map(([k, l]) => `<a href="javascript:void 0" data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</a>`).join('')}</nav>
-  ${tab === 'dia' ? diaHtml() : tab === 'semana' ? semanaHtml() : tab === 'mes' ? mesHtml() : cuentasHtml()}`;
+  ${tab === 'dia' ? diaHtml() : tab === 'semana' ? semanaHtml() : tab === 'mes' ? mesHtml() : tab === 'deseos' ? Deseos.html() : cuentasHtml()}`;
 }
 
 const navFecha = (txt, paso) => `<div class="mes"><button class="btn sm ghost" data-nav="${paso === 'm' ? '-m' : -paso}" aria-label="Anterior">‹</button><b>${txt}</b><button class="btn sm ghost" data-nav="${paso}" aria-label="Siguiente">›</button>${sel !== hoy() && paso !== 'm' ? '<button class="btn sm" data-hoy="1">Hoy</button>' : ''}</div>`;
@@ -266,6 +267,7 @@ async function pagarFijo(f, mes, rerender) {
 export function mount(v, rerender) {
   const on = (s, fn) => v.querySelectorAll(s).forEach((b) => b.onclick = () => fn(b));
   on('[data-tab]', (b) => { tab = b.dataset.tab; rerender(); });
+  if (tab === 'deseos') Deseos.mount(v, rerender);
   on('[data-nav]', (b) => { const n = b.dataset.nav;
     if (n.endsWith('m')) { const d = parse(mesDe(sel) + '-01'); d.setMonth(d.getMonth() + (n.startsWith('-') ? -1 : 1)); sel = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; }
     else sel = addDias(sel, Number(n)); rerender(); });
