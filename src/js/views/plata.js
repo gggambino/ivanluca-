@@ -162,6 +162,7 @@ function mesHtml() {
     <b class="huge">${gano ? '🏆' : '⚠️'}</b>
   </section>
   ${pres ? `<section class="card"><div class="row sp"><h2>Presupuesto del día a día</h2><span class="sm">${money(R.gastosVar)} de ${money(pres)}</span></div>${bar((R.gastosVar / pres) * 100, R.gastosVar > pres ? 'var(--red)' : 'var(--green)')}<p class="muted sm">${R.gastosVar > pres ? `Te pasaste ${money(R.gastosVar - pres)}.` : `Te quedan ${money(pres - R.gastosVar)} para el resto del mes.`}</p></section>` : ''}
+  ${analisisHtml(mes)}
   <div class="grid2">
     <section class="card">
       <h2>Estado de resultados</h2>
@@ -184,6 +185,41 @@ function mesHtml() {
   </div>
   <section class="card"><h2>Cómo viene el mes</h2>${curva(mes)}</section>
   <section class="card"><h2>Todos los movimientos de ${esc(mesLabel(mes))}</h2><ul class="list movs">${R.movs.map((m) => movLi(m, true)).join('') || vacio('Sin movimientos.')}</ul></section>`;
+}
+
+// ---------- Análisis de fin de mes ----------
+function analisisHtml(mes) {
+  const A = L.analisisMes(mes); const R = A.R;
+  if (!R.gastosVar && !R.ingresos) return '';
+  const pctTxt = (f) => (f.prom === null ? '<small class="muted">sin historial</small>' : f.prom === 0 ? '<small class="red">nuevo</small>' : `<small class="${f.pct > 15 ? 'red' : f.pct < -15 ? 'green' : 'muted'}">${f.pct > 0 ? '▲' : f.pct < 0 ? '▼' : '='} ${Math.abs(f.pct)}%</small>`);
+  const concl = [];
+  if (A.tasaAhorro !== null) concl.push(A.tasaAhorro >= 0.2 ? `✅ ${A.enCurso ? 'Vas a ahorrar' : 'Ahorraste'} el ${Math.round(A.tasaAhorro * 100)}% de lo que entró. Arriba del 20% es un mes sano.`
+    : A.tasaAhorro >= 0 ? `⚠️ ${A.enCurso ? 'Vas a ahorrar' : 'Ahorraste'} solo el ${Math.round(A.tasaAhorro * 100)}% de lo que entró. La meta sana es 20% (${money(R.ingresos * 0.2)}).`
+    : `🚨 ${A.enCurso ? `Contando los fijos que faltan, vas a gastar ${money(-(A.tasaAhorro * R.ingresos))}` : `Gastaste ${money(-R.resultado)}`} más de lo que entró. Esto no puede repetirse dos meses seguidos.`);
+  if (R.fijosPend.length) { const fp = sum(R.fijosPend, (f) => f.monto); concl.push(`⏳ Ojo: todavía faltan pagar ${money(fp)} de gastos fijos. Con eso, el mes ${R.resultado - fp >= 0 ? `quedaría en ${money(R.resultado - fp)} a favor` : `quedaría ${money(fp - R.resultado)} en rojo`}.`); }
+  A.deMas.slice(0, 3).forEach((f) => concl.push(f.prom ? `🔺 <b>${esc(f.k)}</b>: ${A.enCurso ? 'ya llevás' : 'gastaste'} ${money(f.v)} y tu promedio de un mes entero es ${money(f.prom)}. Son ${money(f.dif)} de más.` : `🔺 <b>${esc(f.k)}</b>: ${A.enCurso ? 'ya llevás' : 'gastaste'} ${money(f.v)} y en los meses anteriores no habías gastado nada acá.`));
+  if (A.pesada) concl.push(`🍰 <b>${esc(A.pesada.k)}</b> se lleva el ${Math.round(A.pesada.share * 100)}% de tu gasto del día a día. Es la primera que hay que mirar.`);
+  A.bajaste.slice(0, 2).forEach((f) => concl.push(`🟢 Bajaste <b>${esc(f.k)}</b> ${Math.abs(f.pct)}% contra tu promedio (${money(-f.dif)} menos). Bien ahí.`));
+  if (A.pres) concl.push(A.proyVar > A.pres ? `📏 Tu presupuesto era ${money(A.pres)} y ${A.enCurso ? 'vas camino a' : 'terminaste en'} ${money(A.proyVar)}.` : `📏 Quedaste dentro del presupuesto (${money(A.proyVar)} de ${money(A.pres)}).`);
+  const acciones = [];
+  if (A.volverProm > 0) acciones.push(`Volver a tu promedio en ${A.deMas.slice(0, 3).map((f) => esc(f.k)).join(', ')}: ahorrás <b>${money(A.volverProm)}</b> por mes.`);
+  if (A.recortar.length) acciones.push(`Recortar 20% en ${A.recortar.map((f) => esc(f.k)).join(', ')}: son <b>${money(A.ahorro20)}</b> por mes, <b>${money(A.ahorro20 * 12)}</b> en un año.`);
+  if (!A.pres && R.gastosVar) acciones.push(`Ponete un presupuesto para el día a día. Con lo de este mes, un techo razonable sería ${money(Math.round((A.proyVar * 0.9) / 1000) * 1000)}.`);
+  const sig = L.mesDe(addDias(mes + '-28', 7)); const deseosSig = sum((S.deseos || []).filter((d) => d.mes === sig && d.estado === 'pendiente'), (d) => Number(d.monto) || 0);
+  if (deseosSig) acciones.push(`El mes que viene querés gastar ${money(deseosSig)} en tu lista de deseos. ${R.resultado >= deseosSig ? 'Con un resultado como este, te da.' : 'Con un resultado como este no te da: priorizá o pasá cosas.'}`);
+  const max = Math.max(...A.filas.map((f) => Math.max(f.vp, f.prom || 0)), 1);
+  return `<section class="card analisis">
+    <div class="row sp"><h2>${A.enCurso ? `Cómo vas en ${esc(mesLabel(mes))}` : `Análisis de cierre · ${esc(mesLabel(mes))}`}</h2>${A.enCurso ? `<small class="muted">día ${A.diasPas} de ${A.diasMes} · se cierra el último día</small>` : ''}</div>
+    ${A.previos ? '' : '<p class="muted sm">Todavía no hay meses anteriores para comparar. Desde el mes que viene te muestro si subiste o bajaste en cada categoría.</p>'}
+    <ul class="concl">${concl.map((c) => `<li>${c}</li>`).join('')}</ul>
+    ${acciones.length ? `<h3 class="up mt">En qué reducir</h3><ol class="acciones">${acciones.map((c) => `<li>${c}</li>`).join('')}</ol>` : ''}
+    <h3 class="up mt">Categoría por categoría</h3>
+    <div class="cmp">${A.filas.filter((f) => f.v || f.prom).map((f) => `<div class="cmp-f">
+      <div class="row sp sm"><span><span class="dot" style="background:${colorCat(f.k)}"></span> ${esc(f.k)}${f.recortable ? '' : ' <small class="muted">· necesario</small>'}</span><span><b>${money(f.v)}</b> ${pctTxt(f)}</span></div>
+      <div class="cmp-b"><span style="width:${(f.vp / max) * 100}%;background:${colorCat(f.k)}"></span>${f.prom !== null ? `<i style="left:${(f.prom / max) * 100}%" title="Promedio ${money(f.prom)}"></i>` : ''}</div>
+      <small class="muted">${Math.round(f.share * 100)}% del gasto${f.prom !== null ? ` · promedio ${money(f.prom)}` : ''}${f.ant !== null ? ` · mes anterior ${money(f.ant)}` : ''}</small></div>`).join('')}</div>
+    <p class="muted sm">La rayita negra es tu promedio de los meses anteriores.${A.enCurso ? ' Como el mes no terminó, lo que ves en rojo ya pasó tu promedio de un mes entero.' : ''}</p>
+  </section>`;
 }
 
 // ---------- Fijos y cuentas ----------
@@ -368,6 +404,8 @@ async function pagarFijo(f, mes, rerender) {
     };
   });
 }
+
+export function abrirMes(mes) { tab = 'mes'; sel = mes + '-01'; }
 
 export function mount(v, rerender) {
   const on = (s, fn) => v.querySelectorAll(s).forEach((b) => b.onclick = () => fn(b));

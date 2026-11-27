@@ -205,3 +205,36 @@ export const bloquesDel = (f) => S.rutina.filter((r) => r.dia === parse(f).getDa
 // Bloques que se muestran ese día: los propios si lo personalizaste, si no la semana tipo + bloques sueltos agregados
 export const bloquesVista = (f) => diaPersonalizado(f) ? bloquesPropios(f).map((b) => ({ ...b, propio: true, desde: b.hora }))
   : [...bloquesDel(f).map((b) => ({ ...b, tipo: true })), ...bloquesPropios(f).map((b) => ({ ...b, propio: true, desde: b.hora }))];
+
+// ---------- Análisis de fin de mes ----------
+// Compara cada categoría con el promedio de los 3 meses anteriores (los que tengan datos) y arma conclusiones simples.
+const RECORTABLES = /salida|ropa|imagen|uber|transporte|delivery|regalo|suscrip|compra|otro|antojo|delivery|bar/i;
+const mesMas = (mes, n) => { const [y, m] = mes.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+export function analisisMes(mes) {
+  const R = resumenMes(mes);
+  const previos = [1, 2, 3].map((i) => mesMas(mes, -i)).map((m) => ({ m, R: resumenMes(m) })).filter((x) => x.R.gastosVar > 0);
+  const cats = new Map(R.porCategoria);
+  previos.forEach((p) => p.R.porCategoria.forEach(([k]) => { if (!cats.has(k)) cats.set(k, 0); }));
+  const prom = (k) => (previos.length ? sum(previos, (p) => Number(new Map(p.R.porCategoria).get(k) || 0)) / previos.length : null);
+  const ant = previos.find((p) => p.m === mesMas(mes, -1));
+  const enCurso = mes === mesDe(hoy());
+  const [y, m] = mes.split('-').map(Number); const diasMes = new Date(y, m, 0).getDate();
+  const diasPas = enCurso ? parse(hoy()).getDate() : diasMes;
+  const proy = (v) => (enCurso && diasPas < diasMes ? (v / diasPas) * diasMes : v);
+  const filas = [...cats.entries()].map(([k, v]) => {
+    const p = prom(k); const vp = v; // por categoría no proyecto: un gasto grande suelto se exageraría
+    const dif = p === null ? null : vp - p; const pct = p ? Math.round((dif / p) * 100) : null;
+    return { k, v, vp, prom: p, dif, pct, share: R.gastosVar ? v / R.gastosVar : 0, ant: ant ? Number(new Map(ant.R.porCategoria).get(k) || 0) : null, recortable: RECORTABLES.test(k) };
+  }).sort((a, b) => b.v - a.v);
+  const umbral = Math.max(5000, R.gastosVar * 0.04);
+  const deMas = filas.filter((f) => f.prom !== null && f.dif > umbral && (f.prom === 0 || f.pct >= 20)).sort((a, b) => b.dif - a.dif);
+  const bajaste = filas.filter((f) => f.prom && f.dif < -umbral && f.pct <= -15).sort((a, b) => a.dif - b.dif);
+  const pesada = filas.find((f) => f.share >= 0.3 && R.gastosVar > 0);
+  const recortar = filas.filter((f) => f.recortable && f.v > 0).slice(0, 3);
+  const ahorro20 = sum(recortar, (f) => f.vp * 0.2);
+  const volverProm = sum(deMas, (f) => f.dif);
+  const pendFijos = enCurso ? sum(R.fijosPend, (f) => f.monto) : 0; // mes en curso: cuento los fijos que faltan pagar
+  const tasaAhorro = R.ingresos > 0 ? (R.resultado - pendFijos) / R.ingresos : null;
+  const pres = Number(S.perfil?.presupuesto_mes) || 0;
+  return { R, mes, enCurso, diasPas, diasMes, previos: previos.length, filas, deMas, bajaste, pesada, recortar, ahorro20, volverProm, tasaAhorro, pres, proyVar: proy(R.gastosVar) };
+}

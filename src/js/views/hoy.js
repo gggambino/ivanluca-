@@ -4,10 +4,20 @@ import { esc, hoy, fechaLarga, fecha, hm, ahoraHM, parse, money, difDias } from 
 import * as L from '../logic.js';
 import { toast, xpToast, errorMsg, areaChip, bar, vacio, modal, cerrarModal, formData } from '../ui.js';
 import { planHtml, mountPlan } from './plan.js';
+import { abrirMes } from './plata.js';
 
 export function tabsHoy(k) {
   return `<nav class="tabs"><a href="#/hoy" class="${k === 'hoy' ? 'on' : ''}">Hoy</a><a href="#/semana" class="${k === 'semana' ? 'on' : ''}">Semana</a><a href="#/mes" class="${k === 'mes' ? 'on' : ''}">Mes</a></nav>`;
 }
+
+// Los primeros 5 días del mes: aviso de que está el análisis del mes que cerró
+function cierreAviso() {
+  const d = parse(hoy()); if (d.getDate() > 5) return '';
+  const p = new Date(d.getFullYear(), d.getMonth() - 1, 1); const mes = `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}`;
+  const R = L.resumenMes(mes); if (!R.gastos && !R.ingresos) return '';
+  return `<section class="card aviso-cierre ${R.resultado >= 0 ? 'ok' : 'mal'}"><div class="row sp wrap"><span>📊 Cerró ${esc(MESES_H[p.getMonth()])}: ${R.resultado >= 0 ? `te quedaron <b>${money(R.resultado)}</b> a favor` : `quedaste <b>${money(-R.resultado)}</b> en rojo`}. Mirá en qué gastaste y en qué reducir.</span><button class="btn sm primary" data-cierre="${mes}">Ver análisis</button></div></section>`;
+}
+const MESES_H = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 export function html() {
   const h = hoy(); const dia = parse(h).getDay(); const ahora = ahoraHM();
@@ -31,6 +41,7 @@ export function html() {
     </div>
   </header>
   ${tabsHoy('hoy')}
+  ${cierreAviso()}
 
   <div class="grid2">
     <section class="card">
@@ -74,6 +85,7 @@ export function html() {
 }
 
 export function mount(v, rerender) {
+  v.querySelectorAll("[data-cierre]").forEach((b) => b.onclick = () => { abrirMes(b.dataset.cierre); location.hash = "#/plata"; });
   v.querySelectorAll('[data-hab]').forEach((b) => b.onclick = async () => {
     const id = b.dataset.hab; const f = hoy(); const h = S.habitos.find((x) => x.id === id);
     const ya = S.log.find((l) => l.habito_id === id && l.fecha === f);

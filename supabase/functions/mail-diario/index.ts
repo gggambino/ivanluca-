@@ -90,10 +90,41 @@ Deno.serve(async (req) => {
     const sec = (titulo: string, body: string) => body ? `<h2 style="font:700 13px Arial;letter-spacing:1.5px;text-transform:uppercase;color:#FF6B2C;margin:26px 0 10px">${titulo}</h2>${body}` : '';
     const ul = (xs: string[]) => xs.length ? `<ul style="padding-left:18px;margin:0;font:15px/1.45 Arial;color:#1a1a1a">${xs.join('')}</ul>` : '';
     const d = parse(hoy);
+    // Día 1: cierre del mes anterior con análisis por categoría (vs promedio de los 3 meses previos)
+    let cierre = '';
+    if (dhoy === 1) {
+      const mesN = (n: number) => { const x = parse(mes + '-01'); x.setUTCMonth(x.getUTCMonth() + n); return ymd(x).slice(0, 7); };
+      const mp = mesN(-1); const finMp = addDias(mes + '-01', -1);
+      const [mv4, fpp, ibp, ggp] = await Promise.all([
+        q('movimientos').gte('fecha', mesN(-4) + '-01').lte('fecha', finMp).eq('estado', 'hecho'),
+        q('fijos_pagos').eq('mes', mp), q('ingresos_bb').gte('fecha', mp + '-01').lte('fecha', finMp), q('gym_gastos').gte('fecha', mp + '-01').lte('fecha', finMp),
+      ]);
+      const mvs = mv4.data || []; const enMes = (m: any, mm: string) => String(m.fecha).slice(0, 7) === mm;
+      const fijosGymP = (gf.data || []).filter((f: any) => (!f.desde || f.desde <= mp) && (!f.hasta || mp <= f.hasta)); const ggsP = ggp.data || [];
+      const costosGymP = fijosGymP.reduce((s: number, f: any) => { const aj = ggsP.find((g: any) => g.fijo_id === f.id); return s + Number(aj ? aj.monto : f.monto); }, 0)
+        + ggsP.filter((g: any) => !g.fijo_id || !fijosGymP.some((f: any) => f.id === g.fijo_id)).reduce((s: number, g: any) => s + Number(g.monto), 0);
+      const sumar = (xs: any[]) => xs.reduce((s: number, x: any) => s + Number(x.monto || 0), 0);
+      const ingP = sumar(ibp.data || []) - costosGymP + sumar(mvs.filter((m: any) => m.tipo === 'ingreso' && enMes(m, mp)));
+      const varP = mvs.filter((m: any) => m.tipo === 'gasto' && enMes(m, mp));
+      const gasP = sumar(varP) + sumar(fpp.data || []); const resP = ingP - gasP;
+      const porCat = (xs: any[]) => xs.reduce((o: Record<string, number>, m: any) => { const k = m.categoria || 'Otros'; o[k] = (o[k] || 0) + Number(m.monto); return o; }, {});
+      const cats = porCat(varP); const prev = [-2, -3, -4].map(mesN).map((mm) => porCat(mvs.filter((m: any) => m.tipo === 'gasto' && enMes(m, mm)))).filter((o) => Object.keys(o).length);
+      const prom = (k: string) => prev.length ? prev.reduce((s, o) => s + (o[k] || 0), 0) / prev.length : null;
+      const top = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const deMas = Object.entries(cats).map(([k, v]) => ({ k, v, p: prom(k) })).filter((x) => x.p !== null && x.v - (x.p as number) > Math.max(5000, sumar(varP) * 0.04) && (!x.p || x.v / (x.p as number) >= 1.2)).sort((a, b) => (b.v - (b.p as number)) - (a.v - (a.p as number)));
+      const nm = MESES[Number(mp.slice(5)) - 1];
+      cierre = sec(`Cierre de ${nm}`, ul([
+        li(`${resP >= 0 ? '🏆' : '⚠️'} Entró ${money(ingP)}, salió ${money(gasP)}: <b style="color:${resP >= 0 ? '#2E9E55' : '#C8102E'}">${resP >= 0 ? 'te quedaron ' + money(resP) : 'quedaste ' + money(-resP) + ' en rojo'}</b>${ingP > 0 ? ` (${Math.round((resP / ingP) * 100)}% de lo que entró)` : ''}.`),
+        ...top.map(([k, v]) => { const p = prom(k); return li(`${esc(k)}: ${money(v)}${p ? ` <span style="color:${v > p * 1.2 ? '#C8102E' : v < p * 0.85 ? '#2E9E55' : '#777'};font-size:12px">(${v >= p ? '▲' : '▼'} ${Math.abs(Math.round(((v - p) / p) * 100))}% vs promedio)</span>` : ''}`); }),
+        ...deMas.slice(0, 2).map((x) => li(`🔺 Para reducir: <b>${esc(x.k)}</b>. Volviendo a tu promedio ahorrás ${money(x.v - (x.p as number))} por mes.`)),
+      ]) + '<p style="font:13px Arial;color:#777;margin:8px 0 0">El análisis completo está en Plata > Mes.</p>');
+    }
+
 
     const html = `<div style="max-width:560px;margin:0 auto;padding:24px;background:#ffffff;font-family:Arial,sans-serif;color:#1a1a1a">
       <div style="font:900 26px Arial;letter-spacing:1px;color:#0B1F3A">IVAN <span style="color:#FF6B2C">LUCA</span></div>
       <div style="color:#777;font-size:14px;margin-top:2px">${DIAS[dia]} ${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} · racha ${racha} ${racha === 1 ? 'día' : 'días'} 🔥</div>
+      ${cierre}
       ${sec('Estructura del día', linea.length ? `<table style="border-collapse:collapse;width:100%;font:14px Arial">${linea.map((b) => `<tr><td style="padding:6px 10px 6px 0;color:#7A8AA0;white-space:nowrap;border-left:3px solid ${b.c};padding-left:10px">${b.h}${b.h2 ? '–' + b.h2 : ''}</td><td style="padding:6px 0">${b.t}</td></tr>`).join('')}</table>` : '<p style="color:#777">Día libre en la agenda.</p>')}
       ${sec('Tareas de hoy', ul([
         ...tkHoy.filter((t: any) => !t.hora).map((t: any) => li(`☐ ${t.prioridad === 1 ? '<b style="color:#FF6B2C">!</b> ' : ''}${esc(t.titulo)}`)),
