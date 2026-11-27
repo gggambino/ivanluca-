@@ -360,3 +360,5 @@ ul.mini li.resuelto,ul.mini li.no_importaba{text-decoration:line-through;opacity
 .ab-c i.ok{background:var(--green)}
 .ab.hoy small{color:var(--ink);font-weight:700}
 @media (max-width:560px){.tabs a{padding:6px 10px;letter-spacing:.02em}}
+.eerr tr.sub td{font-size:12px;padding-top:0}
+#f-gg input[name=concepto]{flex:2 1 160px} #f-gg input[name=monto]{flex:1 1 90px} #f-gg input[name=fecha]{flex:1 1 130px} #f-gg>*{width:auto;min-width:0}

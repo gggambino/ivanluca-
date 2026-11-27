@@ -9,7 +9,7 @@ const AREAS: Record<string, { l: string; c: string }> = {
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-const money = (n: number) => '$' + Math.round(n || 0).toLocaleString('es-AR');
+const money = (n: number) => (n < 0 ? '−' : '') + '$' + Math.round(Math.abs(n || 0)).toLocaleString('es-AR');
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 const parse = (s: string) => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
@@ -45,13 +45,14 @@ Deno.serve(async (req) => {
 
   for (const P of perfiles || []) {
     const u = P.user_id; const q = (t: string) => db.from(t).select('*').eq('user_id', u);
-    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk, dp] = await Promise.all([
+    const [ru, ha, lo, ca, re, fi, fp, mo, pr, ib, tk, dp, gf, gg] = await Promise.all([
       q('rutina').eq('dia', dia).order('desde'), q('habitos').eq('activo', true).order('orden'),
       q('habito_log').gte('fecha', addDias(hoy, -60)), q('cabeza').eq('estado', 'abierto').order('creado'),
       q('recordatorios'), q('gastos_fijos').eq('activo', true), q('fijos_pagos').eq('mes', mes),
       q('movimientos').gte('fecha', mes + '-01'), q('proyectos').eq('estado', 'en_curso').order('prioridad'), q('ingresos_bb').gte('fecha', mes + '-01'),
       q('tareas').eq('hecho', false).lte('fecha', hoy).gte('fecha', addDias(hoy, -30)).order('hora', { nullsFirst: false }),
       q('dias_plan').eq('fecha', hoy),
+      q('gym_fijos'), q('gym_gastos').gte('fecha', mes + '-01'),
     ]);
     const todas = tk.data || []; const bloquesPropios = todas.filter((t: any) => t.es_bloque && t.fecha === hoy);
     const tks = todas.filter((t: any) => !t.es_bloque); const tkHoy = tks.filter((t: any) => t.fecha === hoy); const tkAtr = tks.filter((t: any) => t.fecha < hoy);
@@ -76,7 +77,12 @@ Deno.serve(async (req) => {
     const fijos = (fi.data || []).filter((x: any) => !pagados.has(x.id) && x.dia_vto && (x.dia_vto < dhoy || x.dia_vto - dhoy <= 5));
     const movs = mo.data || [];
     const aCobrar = movs.filter((m: any) => m.tipo === 'ingreso' && m.estado === 'pendiente');
-    const ingresos = (ib.data || []).reduce((s: number, x: any) => s + Number(x.monto), 0) + movs.filter((m: any) => m.tipo === 'ingreso' && m.estado === 'hecho').reduce((s: number, x: any) => s + Number(x.monto), 0);
+    // gym neto = cobros de Base Bambino − costos del gym (fijos vigentes, con ajuste del mes si hay, + otros gastos)
+    const ggs = gg.data || [];
+    const fijosGym = (gf.data || []).filter((f: any) => (!f.desde || f.desde <= mes) && (!f.hasta || mes <= f.hasta));
+    const costosGym = fijosGym.reduce((s: number, f: any) => { const aj = ggs.find((g: any) => g.fijo_id === f.id); return s + Number(aj ? aj.monto : f.monto); }, 0)
+      + ggs.filter((g: any) => !g.fijo_id || !fijosGym.some((f: any) => f.id === g.fijo_id)).reduce((s: number, g: any) => s + Number(g.monto), 0);
+    const ingresos = (ib.data || []).reduce((s: number, x: any) => s + Number(x.monto), 0) - costosGym + movs.filter((m: any) => m.tipo === 'ingreso' && m.estado === 'hecho').reduce((s: number, x: any) => s + Number(x.monto), 0);
     const gastos = movs.filter((m: any) => m.tipo === 'gasto' && m.estado === 'hecho').reduce((s: number, x: any) => s + Number(x.monto), 0) + (fp.data || []).reduce((s: number, x: any) => s + Number(x.monto || 0), 0);
     const cab = ca.data || []; const proys = pr.data || [];
 
